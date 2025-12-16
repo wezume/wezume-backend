@@ -1,0 +1,8 @@
+[ 03.05.2025 - 03:05:53 ]
+    (MSG) [2] SMILExtract: openSMILE starting!
+[ 03.05.2025 - 03:05:53 ]
+    (MSG) [2] SMILExtract: config file is: smile.conf
+[ 03.05.2025 - 03:05:53 ]
+    (MSG) [2] cComponentManager: successfully registered 102 component types.
+[ 03.05.2025 - 03:05:53 ]
+    (ERR) [1] configManager: cFileConfigReader::openInput : cannot find input file 'smile.conf'!
