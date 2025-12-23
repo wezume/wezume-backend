@@ -90,6 +90,13 @@ public class VideoController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid user ID.");
         }
 
+        // Check if user already has a video
+        List<Video> existingVideos = videoRepository.findAllByUserId(userId);
+        if (!existingVideos.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("User already has a video uploaded. Please delete the existing video before uploading a new one.");
+        }
+
         if (file.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("No file uploaded.");
         }
@@ -176,8 +183,7 @@ public class VideoController {
 
         if (videoPage.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Collections.singletonMap(
-                    "message", "No videos found for this job ID"
-            ));
+                    "message", "No videos found for this job ID"));
         }
 
         List<Long> userIds = videoPage.stream()
@@ -308,7 +314,8 @@ public class VideoController {
                 videoData.put("firstname", user.getFirstName());
                 videoData.put("email", user.getEmail());
                 videoData.put("phonenumber", user.getPhoneNumber());
-                videoData.put("profilepic", user.getProfilepicurl() != null ? user.getProfilepicurl() : defaultProfilePic);
+                videoData.put("profilepic",
+                        user.getProfilepicurl() != null ? user.getProfilepicurl() : defaultProfilePic);
             } else {
                 videoData.put("firstname", "User");
                 videoData.put("profilepic", defaultProfilePic);
@@ -708,7 +715,7 @@ public class VideoController {
                 videoDataMap.put("phoneNumber", user.getPhoneNumber());
                 videoDataMap.put("profilePic",
                         user.getProfilepicurl() != null ? user.getProfilepicurl()
-                        : "https://wezume.in/uploads/videos/defaultpic.png");
+                                : "https://wezume.in/uploads/videos/defaultpic.png");
             } else {
                 videoDataMap.put("firstName", "User");
                 videoDataMap.put("email", "");
@@ -788,7 +795,8 @@ public class VideoController {
             }
 
             File tempVideo = File.createTempFile("downloaded-video", ".mp4");
-            try (InputStream inputStream = connection.getInputStream(); FileOutputStream fileOutputStream = new FileOutputStream(tempVideo)) {
+            try (InputStream inputStream = connection.getInputStream();
+                    FileOutputStream fileOutputStream = new FileOutputStream(tempVideo)) {
 
                 byte[] buffer = new byte[1024];
                 int bytesRead;

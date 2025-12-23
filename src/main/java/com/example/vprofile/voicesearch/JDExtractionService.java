@@ -1,31 +1,42 @@
 package com.example.vprofile.voicesearch;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.*;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class JDExtractionService {
 
-    // ----------------------- FILE READERS -----------------------
+    @Value("${groq.api.key}")
+    private String groqApiKey;
+
+    private final WebClient webClient;
+    private final ObjectMapper objectMapper;
+
+    public JDExtractionService() {
+        this.webClient = WebClient.builder().build();
+        this.objectMapper = new ObjectMapper();
+    }
 
     public String extractText(MultipartFile file) throws Exception {
         String filename = Objects.requireNonNull(file.getOriginalFilename()).toLowerCase();
 
-        if (filename.endsWith(".pdf")) return extractPdf(file);
-        if (filename.endsWith(".docx")) return extractDocx(file);
-        if (filename.endsWith(".txt")) return new String(file.getBytes());
+        if (filename.endsWith(".pdf"))
+            return extractPdf(file);
+        if (filename.endsWith(".docx"))
+            return extractDocx(file);
+        if (filename.endsWith(".txt"))
+            return new String(file.getBytes());
 
         throw new IllegalArgumentException("Unsupported file format: " + filename);
     }
@@ -44,99 +55,94 @@ public class JDExtractionService {
         }
     }
 
-    // ----------------------- ADVANCED EXTRACTION -----------------------
-
     public Map<String, String> extractStructuredData(String jdText) {
+        try {
+            return extractWithGroq(jdText);
+        } catch (Exception e) {
+            System.err.println("Groq extraction failed: " + e.getMessage());
+            e.printStackTrace();
+            return fallbackExtraction();
+        }
+    }
 
-        String cleanText = jdText.replaceAll("\\s+", " ").trim();
+    private Map<String, String> extractWithGroq(String jdText) throws Exception {
+        String prompt = buildPrompt(jdText);
 
-        String jobTitle = extractJobTitle(cleanText);
-        String skills = extractSkills(cleanText);
-        String description = extractResponsibilities(cleanText);
+        Map<String, Object> message = new HashMap<>();
+        message.put("role", "user");
+        message.put("content", prompt);
 
-        String query = (skills + " " + description).trim();
-        if (query.length() < 25) query = cleanText;
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", "llama-3.3-70b-versatile");
+        requestBody.put("messages", Collections.singletonList(message));
+        requestBody.put("temperature", 0.1);
+        requestBody.put("max_tokens", 1000);
 
+        String jsonBody = objectMapper.writeValueAsString(requestBody);
+
+        String response = webClient.post()
+                .uri("https://api.groq.com/openai/v1/chat/completions")
+                .header("Authorization", "Bearer " + groqApiKey)
+                .header("Content-Type", "application/json")
+                .bodyValue(jsonBody)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+
+        return parseGroqResponse(response);
+    }
+
+    private String buildPrompt(String jdText) {
+        return """
+                You are an expert Job Description Parser. Extract data from the text below and return ONLY a valid JSON object with exactly these 3 fields:
+
+                Rules:
+                1. Skills: Extract core keywords only (e.g., "Excel", "Management", "Python"). Remove wrapper words like "Proficiency in", "Knowledge of", "Understanding of". Just the skill names.
+                2. Qualification: Include degrees (MBA, B.Tech), domain knowledge, passions, and "Experience in [topic]" (without time duration).
+                3. Experience: Extract ONLY numerical time (e.g., "2-5 years", "3+ months", "Fresher"). If no time mentioned, write "Not specified".
+
+                Return format:
+                {
+                  "skills": "Excel, Management, Python",
+                  "qualification": "MBA, Understanding of Sports Ecosystem, Passion for Community Building",
+                  "experience": "2-5 years"
+                }
+
+                Job Description:
+                """
+                
+                + jdText;
+    }
+
+    private Map<String, String> parseGroqResponse(String response) throws Exception {
+        JsonNode root = objectMapper.readTree(response);
+        String content = root.path("choices").get(0).path("message").path("content").asText();
+
+        content = content.trim();
+        if (content.startsWith("```json")) {
+            content = content.substring(7);
+        }
+        if (content.startsWith("```")) {
+            content = content.substring(3);
+        }
+        if (content.endsWith("```")) {
+            content = content.substring(0, content.length() - 3);
+        }
+        content = content.trim();
+
+        JsonNode resultNode = objectMapper.readTree(content);
         Map<String, String> result = new HashMap<>();
-        result.put("title", jobTitle);
-        result.put("skills", skills);
-        result.put("description", query);
+        result.put("skills", resultNode.path("skills").asText("Not specified"));
+        result.put("description", resultNode.path("qualification").asText("Not specified"));
+        result.put("title", resultNode.path("experience").asText("Not specified"));
         return result;
     }
 
-    // ----------------------- JOB TITLE DETECTOR -----------------------
-
-    private String extractJobTitle(String text) {
-        // Finds first bolded-like title or "We are hiring: X"
-        Pattern p = Pattern.compile("(job title|position|role|hiring for)[:\\- ]+(.*?)(\\n|$)", Pattern.CASE_INSENSITIVE);
-        Matcher m = p.matcher(text);
-        if (m.find()) return m.group(2).trim();
-
-        // fallback: extract first line with 1–5 words
-        String[] lines = text.split("\n");
-        for (String line : lines) {
-            if (line.trim().length() > 3 && line.trim().length() < 50) {
-                return line.trim();
-            }
-        }
-        return "Unknown Title";
-    }
-
-    // ----------------------- SKILLS DETECTOR -----------------------
-
-    private String extractSkills(String text) {
-
-        List<String> skillTags = Arrays.asList(
-                "skills", "key skills", "skills required", "desired skills",
-                "expertise", "technical skills", "must have", "requirements"
-        );
-
-        for (String tag : skillTags) {
-            String sec = extractSection(text, tag, 400);
-            if (sec.length() > 10) {
-                return removeLabels(sec);
-            }
-        }
-
-        return "";
-    }
-
-    // ----------------------- RESPONSIBILITIES DETECTOR -----------------------
-
-    private String extractResponsibilities(String text) {
-
-        List<String> tags = Arrays.asList(
-                "responsibilities", "job description", "role", "about the role",
-                "what you will do", "your responsibilities", "duties"
-        );
-
-        for (String tag : tags) {
-            String sec = extractSection(text, tag, 600);
-            if (sec.length() > 20) {
-                return removeLabels(sec);
-            }
-        }
-
-        return "";
-    }
-
-    // ----------------------- SECTION EXTRACTION -----------------------
-
-    private String extractSection(String text, String keyword, int length) {
-        String lower = text.toLowerCase();
-        int idx = lower.indexOf(keyword.toLowerCase());
-        if (idx == -1) return "";
-
-        int end = Math.min(idx + length, text.length());
-        return text.substring(idx, end).trim();
-    }
-
-    private String removeLabels(String text) {
-        return text
-                .replaceAll("(?i)skills:? ", "")
-                .replaceAll("(?i)responsibilities:? ", "")
-                .replaceAll("(?i)requirements:? ", "")
-                .replaceAll("\\s+", " ")
-                .trim();
+    private Map<String, String> fallbackExtraction() {
+        Map<String, String> result = new HashMap<>();
+        result.put("skills", "Extraction failed");
+        result.put("description", "Not specified");
+        result.put("title", "Not specified");
+        return result;
     }
 }
