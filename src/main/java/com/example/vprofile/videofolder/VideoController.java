@@ -85,16 +85,8 @@ public class VideoController {
             @RequestParam(value = "jobId", required = false) String jobId,
             @RequestParam(value = "roleCode", required = false) String roleCode,
             @RequestParam(value = "college", required = false) String college) {
-
         if (userId == null || userId <= 0) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid user ID.");
-        }
-
-        // Check if user already has a video
-        List<Video> existingVideos = videoRepository.findAllByUserId(userId);
-        if (!existingVideos.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body("User already has a video uploaded. Please delete the existing video before uploading a new one.");
         }
 
         if (file.isEmpty()) {
@@ -102,20 +94,11 @@ public class VideoController {
         }
 
         try {
-            // Save video
-            Video video = videoService.saveVideo(file, userId, jobId, college, roleCode);
-
-            // Try to generate embedding immediately
-            if (video.getTranscription() != null
-                    && !video.getTranscription().isBlank()
-                    && (video.getEmbeddingVector() == null || video.getEmbeddingVector().isBlank())) {
-
-                embeddingService.generateEmbeddingFor(video);
-            }
-
+            // Save the video and process the file
+            Video video = videoService.saveVideo(file, userId, jobId, college, roleCode); // Ensure this method handles
+                                                                                          // the file and user
             return ResponseEntity.status(HttpStatus.CREATED).body(video);
-
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("File upload failed: " + e.getMessage());
         }

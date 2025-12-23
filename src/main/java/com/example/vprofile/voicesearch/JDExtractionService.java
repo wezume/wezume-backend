@@ -96,21 +96,36 @@ public class JDExtractionService {
         return """
                 You are an expert Job Description Parser. Extract data from the text below and return ONLY a valid JSON object with exactly these 3 fields:
 
-                Rules:
-                1. Skills: Extract core keywords only (e.g., "Excel", "Management", "Python"). Remove wrapper words like "Proficiency in", "Knowledge of", "Understanding of". Just the skill names.
-                2. Qualification: Include degrees (MBA, B.Tech), domain knowledge, passions, and "Experience in [topic]" (without time duration).
-                3. Experience: Extract ONLY numerical time (e.g., "2-5 years", "3+ months", "Fresher"). If no time mentioned, write "Not specified".
+                CRITICAL RULES:
+                1. Skills: Extract ONLY core technical/domain skills as keywords (e.g., "Excel", "Python", "Management", "Marketing"). Remove wrapper words. Just skill names separated by commas.
 
-                Return format:
+                2. Qualification: Extract important keywords comprehensively. Be SELECTIVE - extract only the MOST RELEVANT keywords (allow up to 40% extra):
+                   - Degrees (MBA, B.Tech, Bachelor's, Master's)
+                   - Key certifications (PMP, CFA, Google Analytics)
+                   - Primary domain knowledge (Sports, Finance, Healthcare, Technology)
+                   - Main industries (Retail, E-commerce, SaaS)
+                   - Core responsibilities (Strategy, Planning, Analysis, Coordination)
+                   - TOP personal qualities mentioned (Leadership, Communication, Team Player, Problem Solving, Analytical, Creative)
+                   - Key experience topics (Business Development, Operations, Marketing, Sales) - WITHOUT time duration
+                   - Important soft skills (Collaboration, Initiative, Detail-Oriented)
+
+                   Extract as KEYWORDS only (not full sentences). Separate with commas.
+                   IMPORTANT: Focus on CORE requirements. Allow up to 40% noise - be selective but comprehensive!
+
+                3. Experience: Extract ONLY the numerical time duration (e.g., "2-5 years", "3+ months", "Fresher"). If no time mentioned, write "Not specified".
+
+                OUTPUT FORMAT (selective keywords only):
                 {
-                  "skills": "Excel, Management, Python",
-                  "qualification": "MBA, Understanding of Sports Ecosystem, Passion for Community Building",
+                  "skills": "Excel, Python, Management, Marketing",
+                  "qualification": "MBA, Sports Industry, Business Development, Operations, Strategy, Leadership, Communication, Team Player, Problem Solving, Analytical Thinking, Creative, Market Research, Project Management, Stakeholder Management",
                   "experience": "2-5 years"
                 }
 
+                IMPORTANT: Be SELECTIVE but comprehensive. Extract the CORE and IMPORTANT keywords. Maximum 40% extra keywords allowed!
+
                 Job Description:
                 """
-                
+
                 + jdText;
     }
 
