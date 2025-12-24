@@ -94,38 +94,76 @@ public class JDExtractionService {
 
     private String buildPrompt(String jdText) {
         return """
-                You are an expert Job Description Parser. Extract data from the text below and return ONLY a valid JSON object with exactly these 3 fields:
+                You are an Applicant Tracking System (ATS).
 
-                CRITICAL RULES:
-                1. Skills: Extract ONLY core technical/domain skills as keywords (e.g., "Excel", "Python", "Management", "Marketing"). Remove wrapper words. Just skill names separated by commas.
+                FILTERING LEVEL: 50% STRICT - Be moderately selective, filter only clearly vague terms.
 
-                2. Qualification: Extract important keywords comprehensively. Be SELECTIVE - extract only the MOST RELEVANT keywords (allow up to 40% extra):
-                   - Degrees (MBA, B.Tech, Bachelor's, Master's)
-                   - Key certifications (PMP, CFA, Google Analytics)
-                   - Primary domain knowledge (Sports, Finance, Healthcare, Technology)
-                   - Main industries (Retail, E-commerce, SaaS)
-                   - Core responsibilities (Strategy, Planning, Analysis, Coordination)
-                   - TOP personal qualities mentioned (Leadership, Communication, Team Player, Problem Solving, Analytical, Creative)
-                   - Key experience topics (Business Development, Operations, Marketing, Sales) - WITHOUT time duration
-                   - Important soft skills (Collaboration, Initiative, Detail-Oriented)
+                TASK:
+                Extract from the Job Description:
+                1. Skills (using 2-step approach below)
+                2. Experience (ONLY if explicitly mentioned - see rules below)
 
-                   Extract as KEYWORDS only (not full sentences). Separate with commas.
-                   IMPORTANT: Focus on CORE requirements. Allow up to 40% noise - be selective but comprehensive!
+                2-STEP EXTRACTION STRATEGY FOR SKILLS:
 
-                3. Experience: Extract ONLY the numerical time duration (e.g., "2-5 years", "3+ months", "Fresher"). If no time mentioned, write "Not specified".
+                STEP 1: Check if technical/domain skills are EXPLICITLY mentioned in the JD
+                - If YES → Extract those exact skills (apply 50% filtering)
+                - If NO → Proceed to STEP 2
 
-                OUTPUT FORMAT (selective keywords only):
+                STEP 2: Analyze the JD and INFER required skills
+                - Look at job title, role description, and responsibilities
+                - Identify what specific technical/domain skills would be required
+                - Extract the inferred skills (apply 50% filtering)
+
+                SKILLS - EXTRACT (Be Moderately Inclusive):
+                ✅ Technical skills: Python, Java, SQL, AWS, React, Docker, Kubernetes
+                ✅ Domain skills: Marketing, Business Development, Digital Marketing, Sales, Finance, Data Science, Analytics
+                ✅ Tools/platforms: CRM, Salesforce, Google Ads, HubSpot, Tableau, Power BI
+                ✅ Frameworks: Spring Boot, Django, TensorFlow
+                ✅ Allow borderline terms if they appear relevant to the role
+
+                SKILLS - EXCLUDE ONLY CLEARLY VAGUE TERMS:
+                ❌ Very vague single words: Operations, Technology, Management (standalone without context)
+                ❌ Pure soft skills: Leadership, Communication, Teamwork (unless part of a technical phrase)
+                ❌ Basic office tools: Excel, Word, PowerPoint, MS Office, Google Sheets
+
+                FILTERING GUIDELINES (50% Threshold):
+                - When in doubt, INCLUDE the skill (50% means more inclusive)
+                - Skip only clearly vague standalone terms
+                - Allow domain-specific terms even if broad (e.g., "Marketing", "Sales" are OK)
+                - Better to include borderline skills than miss relevant ones
+
+                EXAMPLES:
+                - JD: "Required: Python, AWS, Operations, CRM" → Extract: ["Python", "AWS", "CRM"] (skip Operations)
+                - JD: "Marketing manager with analytics" → Infer: ["Marketing", "Analytics"]
+                - JD: "Technology leader with CRM" → Extract: ["CRM"] (skip Technology)
+
+                EXPERIENCE EXTRACTION RULES (STRICTLY LITERAL):
+                ⚠️ CRITICAL: Extract experience ONLY if EXPLICITLY mentioned with numerical years
+
+                VALID FORMATS (Extract these):
+                ✅ "1-2 years", "2 years", "3+ years", "5+ years", "3-5 years"
+                ✅ "1-2", "2-5", "3+", "5+" (numerical year ranges)
+                ✅ "Fresher" or "0 years" or "Entry level with 0-1 years"
+
+                INVALID (Return "Not specified"):
+                ❌ "Experience required" (no numbers)
+                ❌ "Experienced professional" (no numbers)
+                ❌ "Senior level" (no numbers)
+                ❌ "3-6 months" (months, not years)
+                ❌ "Internship" (no specific years)
+                ❌ NO mention of experience at all
+
+                RULE: If there's no explicit numerical year value → ALWAYS return "Not specified"
+                DO NOT infer or guess experience from job title or seniority level
+
+                OUTPUT FORMAT (STRICT JSON ONLY):
                 {
-                  "skills": "Excel, Python, Management, Marketing",
-                  "qualification": "MBA, Sports Industry, Business Development, Operations, Strategy, Leadership, Communication, Team Player, Problem Solving, Analytical Thinking, Creative, Market Research, Project Management, Stakeholder Management",
-                  "experience": "2-5 years"
+                  "skills": [],
+                  "experience": []
                 }
-
-                IMPORTANT: Be SELECTIVE but comprehensive. Extract the CORE and IMPORTANT keywords. Maximum 40% extra keywords allowed!
 
                 Job Description:
                 """
-
                 + jdText;
     }
 
@@ -147,17 +185,34 @@ public class JDExtractionService {
 
         JsonNode resultNode = objectMapper.readTree(content);
         Map<String, String> result = new HashMap<>();
-        result.put("skills", resultNode.path("skills").asText("Not specified"));
-        result.put("description", resultNode.path("qualification").asText("Not specified"));
-        result.put("title", resultNode.path("experience").asText("Not specified"));
+
+        // Convert skills array to comma-separated string
+        JsonNode skillsNode = resultNode.path("skills");
+        String skills = "Not specified";
+        if (skillsNode.isArray() && skillsNode.size() > 0) {
+            List<String> skillsList = new ArrayList<>();
+            skillsNode.forEach(node -> skillsList.add(node.asText()));
+            skills = String.join(", ", skillsList);
+        }
+
+        // Convert experience array to comma-separated string
+        JsonNode experienceNode = resultNode.path("experience");
+        String experience = "Not specified";
+        if (experienceNode.isArray() && experienceNode.size() > 0) {
+            List<String> expList = new ArrayList<>();
+            experienceNode.forEach(node -> expList.add(node.asText()));
+            experience = String.join(", ", expList);
+        }
+
+        result.put("skills", skills);
+        result.put("experience", experience);
         return result;
     }
 
     private Map<String, String> fallbackExtraction() {
         Map<String, String> result = new HashMap<>();
         result.put("skills", "Extraction failed");
-        result.put("description", "Not specified");
-        result.put("title", "Not specified");
+        result.put("experience", "Not specified");
         return result;
     }
 }

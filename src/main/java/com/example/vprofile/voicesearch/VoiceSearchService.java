@@ -32,7 +32,7 @@ public class VoiceSearchService {
 
     /**
      * Searches videos for a user based on keyword matching against transcriptions.
-     * Returns only videos with 60-100% keyword match.
+     * Liberal matching: Returns videos with 20%+ keyword match.
      */
     public List<Video> search(Long userId, String query) throws Exception {
         log.info("Starting keyword-based search for user {} with query: '{}'", userId, query);
@@ -55,22 +55,12 @@ public class VoiceSearchService {
 
         log.debug("Fetched {} videos for keyword matching.", videos.size());
 
-        // 4. Determine minimum match threshold based on keyword count
-        // For small queries (1-3 keywords), accept if at least 1 keyword matches
-        // For larger queries (4+ keywords), require at least 50% match
-        int minMatchPercentage;
-        if (keywords.size() <= 3) {
-            // For 1-3 keywords: accept if at least 1 matches
-            // Examples: 1/1=100%, 1/2=50%, 1/3=33%, 2/3=67%
-            minMatchPercentage = (int) Math.ceil(100.0 / keywords.size());
-            log.debug("Small query ({} keywords): accepting {}%+ matches (at least 1 keyword)",
-                    keywords.size(), minMatchPercentage);
-        } else {
-            // For 4+ keywords: require at least 50% match
-            minMatchPercentage = 50;
-            log.debug("Large query ({} keywords): accepting {}%+ matches",
-                    keywords.size(), minMatchPercentage);
-        }
+        // 4. LIBERAL MATCHING THRESHOLD
+        // Accept videos if at least 20% of keywords match (or minimum 1 keyword)
+        int minMatchPercentage = 20; // Reduced from 50% to 20% for liberal matching
+
+        log.debug("Liberal matching: accepting {}%+ matches for {} keywords",
+                minMatchPercentage, keywords.size());
 
         // 5. Score each video based on keyword matching
         for (Video v : videos) {
@@ -79,7 +69,7 @@ public class VoiceSearchService {
                 continue;
             }
 
-            // Calculate match percentage
+            // Calculate match percentage (now with partial matching support)
             int matchPercentage = calculateKeywordMatch(keywords, v.getTranscription());
 
             if (matchPercentage >= minMatchPercentage) {
@@ -139,6 +129,7 @@ public class VoiceSearchService {
 
     /**
      * Calculate keyword match percentage between query keywords and transcription.
+     * Uses LIBERAL matching: accepts both exact word matches and partial matches.
      * Example: 10 total keywords, 9 matched = 90%, 10 matched = 100%
      */
     private int calculateKeywordMatch(List<String> keywords, String transcription) {
@@ -148,9 +139,21 @@ public class VoiceSearchService {
         List<String> unmatchedKeywords = new ArrayList<>();
 
         for (String keyword : keywords) {
-            // Use word boundary matching to avoid partial matches
+            boolean matched = false;
+
+            // Try 1: Exact word boundary match (highest priority)
             String pattern = "\\b" + java.util.regex.Pattern.quote(keyword) + "\\b";
             if (normalizedTranscription.matches(".*" + pattern + ".*")) {
+                matched = true;
+            }
+
+            // Try 2: Partial/substring match (liberal matching)
+            // E.g., "market" matches "marketing", "python" matches "pythonic"
+            if (!matched && normalizedTranscription.contains(keyword)) {
+                matched = true;
+            }
+
+            if (matched) {
                 matchedCount++;
                 matchedKeywords.add(keyword);
             } else {
