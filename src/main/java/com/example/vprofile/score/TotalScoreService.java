@@ -1,6 +1,7 @@
 package com.example.vprofile.score;
 
 import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -33,12 +34,12 @@ public class TotalScoreService {
 
         // Clarity Score — keep raw value, floor to 1 decimal
         double clarityRaw = audio.getFillerWordScore() + audio.getSpeechRateScore() +
-                audio.getSentenceStructureScore() + audio.getArticulationScore();
+                audio.getToneScore() + audio.getArticulationScore();
         double clarity = Math.floor(clarityRaw * 10.0) / 10.0;
 
         // Confidence Score — fix duplicate usage
-        double confidenceRaw = facial.getEyeContactScore() + facial.getStraightFaceScore() +
-                audio.getPitchScore() + facial.getSmileScore();
+        double confidenceRaw = facial.getEyeContactScore() + audio.getEnergyScore() +
+                audio.getPitchScore() + audio.getToneScore();
         double confidence = Math.floor(confidenceRaw * 10.0) / 10.0;
 
         // Authenticity Score
@@ -47,8 +48,8 @@ public class TotalScoreService {
         double authenticity = Math.floor(authenticityRaw * 10.0) / 10.0;
 
         // Emotional Score
-        double emotionalRaw = audio.getSpeechRateScore() + audio.getToneScore() +
-                facial.getStraightFaceScore() + audio.getEnergyScore();
+        double emotionalRaw = audio.getEmotionScore() + audio.getToneScore() +
+                facial.getSmileScore() + facial.getEyeContactScore();
         double emotional = Math.floor(emotionalRaw * 10.0) / 10.0;
 
         // Total Score — sum of raw scores, floor to 1 decimal

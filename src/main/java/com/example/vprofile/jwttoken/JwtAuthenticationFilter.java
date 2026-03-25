@@ -70,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("Requested URI: " + uri); // Log the URI for debugging
         return uri.equals("/api/users/signup/user") || uri.equals("/api/login") || uri.equals("/api/users/check-Recruteremail")
        || uri.equals("/users/check-email") || uri.equals("api/users/check-phone")|| uri.equals("/api/users/update-password")|| uri.equals("/api/auth/signup/placement")
-       || uri.equals("/api/verify-email")|| uri.equals("/api/verify/placement/{token}")|| uri.equals("/api/users/share")|| uri.equals("/api/videos/video/{videoId}");
+       || uri.equals("/api/verify-email")|| uri.equals("/api/verify/placement/{token}")|| uri.equals("/api/users/share")|| uri.equals("/api/videos/video/{videoId}")|| uri.equals("/api/auth/linkedin");
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {

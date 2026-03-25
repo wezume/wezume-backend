@@ -88,6 +88,23 @@ public class UserService {
             if (updatedUser.getEstablishedYear() != null) {
                 existingUser.setEstablishedYear(updatedUser.getEstablishedYear());
             }
+            if (updatedUser.getLinks() != null && !updatedUser.getLinks().isBlank()) {
+
+                String[] pairs = updatedUser.getLinks().split(",");
+
+                if (pairs.length > 4) {
+                    throw new RuntimeException("Links cannot be more than 4");
+                }
+
+                for (String pair : pairs) {
+                    if (!pair.contains(":")) {
+                        throw new RuntimeException("Enter The Correct Format For Links (e.g., LinkedIn:https://linkedin.com/in/username)");
+                    }
+                }
+
+                existingUser.setLinks(updatedUser.getLinks());
+            }
+
             existingUser.setEnabled(updatedUser.isEnabled());
             return userRepository.save(existingUser);
         }).orElseThrow(() -> new RuntimeException("User not found with ID: " + id));
@@ -133,7 +150,7 @@ public class UserService {
     }
 
     public boolean existsByPhoneNumber(String phoneNumber) {
-    return userRepository.existsByPhoneNumber(phoneNumber);
-}
+        return userRepository.existsByPhoneNumber(phoneNumber);
+    }
 
 }

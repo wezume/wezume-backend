@@ -220,8 +220,12 @@ public class UserController {
         }
     }
 
-    @PutMapping("/update/{userId}")
-    public ResponseEntity<User> updateUser(@PathVariable Long userId,
+    @PutMapping(
+            value = "/update/{userId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<User> updateUser(
+            @PathVariable Long userId,
             @RequestParam(value = "firstName", required = false) String firstName,
             @RequestParam(value = "lastName", required = false) String lastName,
             @RequestParam(value = "email", required = false) String email,
@@ -237,16 +241,18 @@ public class UserController {
             @RequestParam(value = "jobId", required = false) String jobId,
             @RequestParam(value = "city", required = false) String city,
             @RequestParam(value = "establishedYear", required = false) Integer establishedYear,
-            @RequestParam(value = "enabled", required = false) boolean enabled,
-            @RequestParam(value = "profilePic", required = false) MultipartFile profilePic) {
+            // ✅ links as SINGLE STRING
+            @RequestParam(value = "links", required = false) String links,
+            @RequestParam(value = "enabled", required = false) Boolean enabled,
+            @RequestParam(value = "profilePic", required = false) MultipartFile profilePic
+    ) {
         try {
-            // Fetch the existing user to be updated
             User existingUser = userService.getUserById(userId);
             if (existingUser == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
             }
 
-            // Update the user fields
+            // ---------- BASIC FIELDS ----------
             if (firstName != null) {
                 existingUser.setFirstName(firstName);
             }
@@ -292,24 +298,37 @@ public class UserController {
             if (establishedYear != null) {
                 existingUser.setEstablishedYear(establishedYear);
             }
-            if (enabled) {
+            if (enabled != null) {
                 existingUser.setEnabled(enabled);
             }
 
-            // Handle the profile picture update
-            if (profilePic != null && !profilePic.isEmpty()) {
-                // Save the profile picture and get the URL
-                String profilePicUrl = saveProfilePic(profilePic, existingUser);
-                existingUser.setProfilepicurl(profilePicUrl);  // Update the user's profilePic URL
+            // ---------- LINKS (key:value,key:value) ----------
+            if (links != null && !links.isBlank()) {
+
+                // count number of links safely
+                String[] pairs = links.split(",");
+                if (pairs.length > 4) {
+                    return ResponseEntity
+                            .status(HttpStatus.BAD_REQUEST)
+                            .body(null);
+                }
+
+                existingUser.setLinks(links); // store directly
             }
 
-            // Update the user in the database
-            User updatedUser = userService.updateUser(userId, existingUser);
+            // ---------- PROFILE PIC ----------
+            if (profilePic != null && !profilePic.isEmpty()) {
+                String profilePicUrl = saveProfilePic(profilePic, existingUser);
+                existingUser.setProfilepicurl(profilePicUrl);
+            }
 
+            User updatedUser = userService.updateUser(userId, existingUser);
             return ResponseEntity.ok(updatedUser);
+
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(null);
         }
     }

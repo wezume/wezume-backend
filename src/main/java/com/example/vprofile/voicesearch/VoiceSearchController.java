@@ -41,10 +41,14 @@ public class VoiceSearchController {
     }
 
     @PostMapping("/voice")
-    public ResponseEntity<?> voiceSearch(@RequestParam Long userId,
-            @RequestParam String transcription) {
+    public ResponseEntity<?> voiceSearch(
+            @RequestParam Long userId,
+            @RequestParam String transcription,
+            @RequestParam(required = false) String jobId
+    ) {
         try {
-            List<Video> results = searchService.search(userId, transcription);
+            // 🔍 Call search with optional jobId filter
+            List<Video> results = searchService.search(userId, transcription, jobId);
 
             List<Map<String, Object>> responseList = results.stream().map(video -> {
 
@@ -56,9 +60,14 @@ public class VoiceSearchController {
                 videoMap.put("userId", video.getUserId());
                 videoMap.put("jobid", video.getJobId());
                 videoMap.put("thumbnail", video.getThumbnailUrl());
-                videoMap.put("firstName", user != null ? user.getFirstName() : null);
 
-                // ⭐ ADD CONFIDENCE SCORE IN RESPONSE
+                // 👤 User details (null-safe)
+                videoMap.put("firstName", user != null ? user.getFirstName() : null);
+                videoMap.put("email", user != null ? user.getEmail() : null);
+                videoMap.put("phoneNumber", user != null ? user.getPhoneNumber() : null);
+                videoMap.put("profilePic", user != null ? user.getProfilePic() : null);
+
+                // ⭐ confidence from keyword matching
                 videoMap.put("confidence", video.getConfidence());
 
                 return videoMap;
@@ -68,7 +77,8 @@ public class VoiceSearchController {
             return ResponseEntity.ok(responseList);
 
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("message", "Voice Search Failed"));
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("message", "Voice Search Failed"));
         }
     }
 

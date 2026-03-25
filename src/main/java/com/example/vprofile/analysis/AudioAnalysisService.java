@@ -38,7 +38,7 @@ public class AudioAnalysisService {
 
     private final String openSmileBin = "/usr/local/bin";
     private final String configFile = "/root/opensmile/config/is09-13/IS09_emotion.conf";
-    private final String audioDir = "/home/wezume/htdocs/wezume.in/audio";
+    private final String audioDir = System.getProperty("user.dir") + "/audio_analysis_temp";
 
     public SpeechScore analyzeAudio(String audioUrl, Long videoId)
             throws IOException, InterruptedException {
@@ -66,7 +66,8 @@ public class AudioAnalysisService {
         }
 
         // 2. Convert MP3 to WAV using FFmpeg
-        ProcessBuilder ffmpegBuilder = new ProcessBuilder("/usr/bin/ffmpeg", "-y", "-i", tempMp3Path, "-ar", "16000",
+        ProcessBuilder ffmpegBuilder = new ProcessBuilder("/usr/bin/ffmpeg", "-y", "-i", tempMp3Path,
+                "-ar", "16000",
                 "-ac", "1", wavPath);
         ffmpegBuilder.redirectErrorStream(true);
         Process ffmpegProcess = ffmpegBuilder.start();
@@ -106,23 +107,65 @@ public class AudioAnalysisService {
 
         // 4. Parse CSV output
         double pitch = 0, energy = 0, tone = 0, emotion = 0;
+        java.util.List<String> attributes = new java.util.ArrayList<>();
+        int pitchIndex = -1;
+        int energyIndex = -1;
+        int toneIndex = -1; // MFCC
 
         try (BufferedReader reader = new BufferedReader(new FileReader(outputCsv))) {
             String line;
             while ((line = reader.readLine()) != null) {
+                if (line.startsWith("@attribute")) {
+                    String[] parts = line.split("\\s+");
+                    if (parts.length > 1) {
+                        attributes.add(parts[1]);
+                    }
+                    continue;
+                }
                 if (line.startsWith("@") || line.startsWith("name"))
                     continue;
-                String[] parts = line.split(",");
-                if (parts.length > 30) {
-                    pitch = Double.parseDouble(parts[10]);
-                    energy = Double.parseDouble(parts[15]);
-                    tone = Double.parseDouble(parts[20]);
-                    emotion = Double.parseDouble(parts[30]);
 
-                    System.out.println("Pitch: " + pitch);
-                    System.out.println("Energy: " + energy);
-                    System.out.println("Tone: " + tone);
-                    System.out.println("Emotion: " + emotion);
+                // Find indices dynamically if not found yet
+                if (pitchIndex == -1 && !attributes.isEmpty()) {
+                    for (int i = 0; i < attributes.size(); i++) {
+                        String attr = attributes.get(i);
+                        if (attr.contains("F0_sma_amean"))
+                            pitchIndex = i;
+                        else if (attr.contains("pcm_RMSenergy_sma_amean"))
+                            energyIndex = i;
+                        else if (attr.contains("pcm_fftMag_mfcc_sma[4]_amean"))
+                            toneIndex = i;
+                    }
+                    // Fallbacks if exact names not found
+                    if (energyIndex == -1)
+                        energyIndex = 6; // Default fallback
+                    if (toneIndex == -1)
+                        toneIndex = 24;
+                    if (pitchIndex == -1)
+                        pitchIndex = attributes.size() - 2;
+                }
+
+                String[] parts = line.split(",");
+
+                if (parts.length > 300) {
+                    // Use dynamic indices.
+                    // attributes.get(i) corresponds to parts[i].
+                    // attributes[0] is 'name', parts[0] is instance name.
+
+                    if (energyIndex != -1 && energyIndex < parts.length)
+                        energy = Double.parseDouble(parts[energyIndex]);
+
+                    if (toneIndex != -1 && toneIndex < parts.length)
+                        tone = Double.parseDouble(parts[toneIndex]);
+
+                    if (pitchIndex != -1 && pitchIndex < parts.length)
+                        pitch = Double.parseDouble(parts[pitchIndex]);
+
+                    // Emotion Proxy
+                    emotion = (energy * 1000) + (pitch / 50);
+
+                    System.out.println("Extracted - Pitch: " + pitch + ", Energy: " + energy + ", Tone: " + tone
+                            + ", Emotion Proxy: " + emotion);
                     break;
                 }
             }
@@ -130,59 +173,46 @@ public class AudioAnalysisService {
             e.printStackTrace();
         }
 
-        // Normalize values (0 to 1 scale)
-        double normPitch = (pitch - 0) / (6 - 0);
-        // double normEnergy = (energy - 0) / (6 - 0);
-        double normTone = (tone - (-10)) / (10 - (-10));
-        // double normEmotion = (emotion - (-1)) / (1 - (-1));
+        // Normalize values (Revised based on logs)
+        // Pitch: Normal speech F0 is 80-250Hz. Using lower base to tolerate deep
+        // voices/noise.
+        double normPitch = (pitch - 0) / (250 - 0);
 
-        // Initialize scores
-        double pitchScore = 1, energyScore = 1, toneScore = 1, emotionScore = 1;
+        // Energy: RMS Energy usually 0.0 to 0.1
+        double normEnergy = (energy - 0) / (0.05 - 0);
 
-        // Simple rules on normalized values:
+        // Tone: MFCC
+        double normTone = (tone - (-20)) / (20 - (-20));
 
-        // Pitch (ideal ~ 0.4 to 0.75)
-        if ((normPitch >=0.1 && normPitch < 0.2)) {
-            pitchScore = 1.5;
-        } else if (normPitch > 0.2 && normPitch < 0.3) {
-            pitchScore = 1.75;
-        } else if (normPitch > 0.3){
-            pitchScore = 2;
-        }else {
-            pitchScore = 1;
-        }
+        // Emotion: Proxy range
+        double normEmotion = (emotion - 0) / (10 - 0);
 
-        // Energy: Ideal [0.4 - 0.7], Slightly off [0.3 - 0.4) or (0.7 - 0.8], Very off
-        // <0.3 or >0.8
-        if (energy >= 0.3 && energy < 0.4) {
-            energyScore = 1.5;
-        } else if (energy >= 0.4 && energy <= 5) {
-            energyScore = 1.75;
-        } else if (energy > 5) {
-            energyScore = 2;
-        }
+        System.out.println("Normalized - Pitch: " + normPitch + ", Energy: " + normEnergy + ", Tone: " + normTone
+                + ", Emotion: " + normEmotion);
 
-        // Tone (ideal ~ 0.55 to 0.75)
-         if ((normTone >= 0.1 && normTone < 0.3)) {
-            toneScore = 1.5;
-        } else if (normTone >0.3 && normTone < 0.5) {
-            toneScore = 1.75;
-        } else if ( normTone < 0.5) {
-            toneScore = 2;
-        }
-         else {
-            toneScore = 1;
-        }
+        // Initialize scores and define ideal values
+        double pitchScore, energyScore, toneScore, emotionScore;
 
-        // Emotion: Ideal [0.0 - 0.6], Slightly off [-0.5 - 0.0) or (0.6 - 0.8], Very
-        // off <-0.5 or >0.8
-        if (emotion >= 0.1 && emotion < 0.3) {
-            emotionScore = 1.5;
-        } else if (emotion >= 0.3 && emotion < 0.5) {
-            emotionScore = 1.75;
-        } else if (emotion >= 0.5) {
-            emotionScore = 2;
-        }
+        // Ideal normalized values (based on midpoints of "good" ranges)
+        double idealPitch = 0.55;
+        double idealEnergy = 0.45;
+        double idealTone = 0.55;
+        double idealEmotion = 0.55;
+
+        // Scoring Logic:
+        // Score is 2.0 at idealValue.
+        // For every 0.1 deviation (increase/decrease) from ideal, the score decreases
+        // by 0.25.
+        // Clamped between 1.0 and 2.0.
+
+        pitchScore = Math.round(
+                Math.max(1.0, Math.min(2.0, 2.0 - (Math.abs(normPitch - idealPitch) / 0.1) * 0.25)) * 10.0) / 10.0;
+        energyScore = Math.round(
+                Math.max(1.0, Math.min(2.0, 2.0 - (Math.abs(normEnergy - idealEnergy) / 0.1) * 0.25)) * 10.0) / 10.0;
+        toneScore = Math.round(Math.max(1.0, Math.min(2.0, 2.0 - (Math.abs(normTone - idealTone) / 0.1) * 0.25)) * 10.0)
+                / 10.0;
+        emotionScore = Math.round(
+                Math.max(1.0, Math.min(2.0, 2.0 - (Math.abs(normEmotion - idealEmotion) / 0.1) * 0.25)) * 10.0) / 10.0;
 
         System.out.println("Pitch Score: " + pitchScore);
         System.out.println("Energy Score: " + energyScore);
@@ -224,8 +254,8 @@ public class AudioAnalysisService {
             if (speechRate < 1.0 || speechRate > 4.0)
                 rateScore -= 0.3;
 
-            if (totalWords > 160) {
-                int extraWords = totalWords - 160;
+            if (totalWords > 140) {
+                int extraWords = totalWords - 140;
                 double penalty = Math.floor(extraWords / 20.0) * 0.3;
                 rateScore -= penalty;
             }

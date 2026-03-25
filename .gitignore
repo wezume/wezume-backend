@@ -24,3 +24,6 @@ target/
 
 src/main/resources/application.properties
 src/main/resources/haarcascades
+src/main/java/com/example/vprofile/linkedIn/LinkedInAuthController.java
+src/main/resources/opensmile-3.0.2-macos-armv8
+src/main/resources/usr

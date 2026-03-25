@@ -33,7 +33,7 @@ public class SecurityConfig {
             .httpBasic(httpBasic -> httpBasic.disable())  // Disable HTTP Basic Authentication using new API
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/users/signup/user", "/api/login","/api/users/check-Recruteremail","/users/check-email","/api/users/check-phone","/api/users/update-password"
-                ,"/api/verify-email","/api/verify/placement/{token}","/api/auth/signup/placement","/api/users/share","/api/videos/video/{videoId}").permitAll()  // Allow signup and login without authentication
+                ,"/api/verify-email","/api/verify/placement/{token}","/api/auth/signup/placement","/api/users/share","/api/videos/video/{videoId}","/api/auth/linkedin").permitAll()  // Allow signup and login without authentication
                 .anyRequest().authenticated()  // Protect other routes
             )
             .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);  // Add JWT filter

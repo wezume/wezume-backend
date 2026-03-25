@@ -2,6 +2,9 @@ package com.example.vprofile.logincredentials;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 
@@ -49,7 +53,7 @@ public class User {
     private byte[] profilePic;
 
     private String currentRole;
-    private String experience; 
+    private String experience;
     private String industry;
     private String Profilepicurl;
     private String currentEmployer;
@@ -57,20 +61,24 @@ public class User {
     private String college;
     private String jobid;
     private String city;
-    private Integer establishedYear; 
+    private Integer establishedYear;
+    @Lob
+    @Column(name = "links")
+    private String links;
 
     private boolean enabled;
 
     // Constructors
     public User(Long id, String firstName, String lastName, String email, String phoneNumber, String password,
             String jobOption, byte[] profilePic, String currentRole, String keySkills,
-            String experience, String industry, String currentEmployer,String college, String jobid,
-            String city, Integer establishedYear, boolean enabled,String Profilepicurl) {
+            String experience, String industry, String currentEmployer, String college, String jobid,
+            String city, Integer establishedYear, boolean enabled, String Profilepicurl, String Links) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
         this.Profilepicurl = Profilepicurl;
+        this.links = Links;
         this.phoneNumber = phoneNumber;
         this.password = password;
         this.college = college;
@@ -108,7 +116,6 @@ public class User {
     }
 
     // Existing Getters and Setters remain unchanged
-
     public Long getId() {
         return id;
     }
@@ -213,7 +220,6 @@ public class User {
         this.currentEmployer = currentEmployer;
     }
 
-
     public boolean isEnabled() {
         return enabled;
     }
@@ -228,15 +234,18 @@ public class User {
 
     public String getCollege() {
         return college;
-    }   
+    }
+
     public void setCollege(String college) {
         this.college = college;
     }
+
     public String getJobId() {
         return jobid;
     }
+
     public void setJobId(String jobid) {
-        this.jobid = jobid;   
+        this.jobid = jobid;
     }
 
     public String getProfilepicurl() {
@@ -247,6 +256,41 @@ public class User {
         Profilepicurl = profilepicurl;
     }
 
-    
+    public String getLinks() {
+        return links;
+    }
+
+    public void setLinks(String links) {
+        this.links = links;
+    }
+
+
+    @Transient
+public Map<String, String> getLinksMap() {
+    Map<String, String> map = new HashMap<>();
+    if (links == null || links.isBlank()) return map;
+
+    String[] pairs = links.split(",");
+    for (String pair : pairs) {
+        String[] kv = pair.split(":", 2);
+        if (kv.length == 2) {
+            map.put(kv[0], kv[1]);
+        }
+    }
+    return map;
+}
+
+@Transient
+public void setLinksMap(Map<String, String> map) {
+    if (map == null || map.isEmpty()) {
+        this.links = null;
+        return;
+    }
+    this.links = map.entrySet()
+            .stream()
+            .map(e -> e.getKey() + ":" + e.getValue())
+            .collect(Collectors.joining(","));
+}
+
 
 }
