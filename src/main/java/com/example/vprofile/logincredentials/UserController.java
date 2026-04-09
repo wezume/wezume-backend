@@ -32,6 +32,7 @@ public class UserController {
     public UserController(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
+
     @Autowired
     private UserService userService;
 
@@ -121,19 +122,19 @@ public class UserController {
     // Method to save profile picture in the "profilepic" folder and return the URL
     private String saveProfilePic(MultipartFile profilePic, User user) throws IOException {
         // Absolute path to the uploads/profilepic directory
-        String uploadDir = System.getProperty("user.dir") + "/uploads/profilepic";  // Absolute path
+        String uploadDir = System.getProperty("user.dir") + "/uploads/profilepic"; // Absolute path
 
         // Create the directory if it doesn't exist
         File directory = new File(uploadDir);
         if (!directory.exists()) {
-            boolean created = directory.mkdirs();  // Create the directory
+            boolean created = directory.mkdirs(); // Create the directory
             if (!created) {
                 throw new IOException("Failed to create directory for file uploads.");
             }
         }
 
         // Get user-specific information for file naming
-        String firstName = user.getFirstName();  // User's first name
+        String firstName = user.getFirstName(); // User's first name
 
         // Get the original file extension
         String originalFileName = profilePic.getOriginalFilename();
@@ -160,10 +161,16 @@ public class UserController {
     }
 
     @PostMapping("/check-email")
-    public ResponseEntity<Map<String, Boolean>> checkEmail(@RequestBody Map<String, String> emailPayload) {
+    public ResponseEntity<?> checkEmail(@RequestBody Map<String, String> emailPayload) {
         String email = emailPayload.get("email");
-        boolean exists = userRepository.existsByEmail(email);
-        return ResponseEntity.ok(Collections.singletonMap("exists", exists));
+
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Collections.singletonMap("message", "Email already exists"));
+        }
+
+        return ResponseEntity.ok(Collections.singletonMap("message", "Email is available"));
     }
 
     @PostMapping("/check-Recruteremail")
@@ -214,16 +221,13 @@ public class UserController {
         if (user.getProfilePic() != null) {
             return ResponseEntity.ok()
                     .contentType(MediaType.IMAGE_JPEG) // Set the appropriate content type
-                    .body(user.getProfilePic());        // Send the byte array (image) in the response body
+                    .body(user.getProfilePic()); // Send the byte array (image) in the response body
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
 
-    @PutMapping(
-            value = "/update/{userId}",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
+    @PutMapping(value = "/update/{userId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<User> updateUser(
             @PathVariable Long userId,
             @RequestParam(value = "firstName", required = false) String firstName,
@@ -244,8 +248,7 @@ public class UserController {
             // ✅ links as SINGLE STRING
             @RequestParam(value = "links", required = false) String links,
             @RequestParam(value = "enabled", required = false) Boolean enabled,
-            @RequestParam(value = "profilePic", required = false) MultipartFile profilePic
-    ) {
+            @RequestParam(value = "profilePic", required = false) MultipartFile profilePic) {
         try {
             User existingUser = userService.getUserById(userId);
             if (existingUser == null) {

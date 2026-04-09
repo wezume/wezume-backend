@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -76,6 +77,15 @@ public class FacialScoreController {
             System.err.println("❌ Error analyzing video: " + e.getMessage());
             return ResponseEntity.status(500).body(null);
         }
+    }
+
+
+     @GetMapping("/video/{videoId}")
+    public ResponseEntity<?> getFacialScoreByVideoId(@PathVariable Long videoId) {
+
+        return facialScoringRepository.findByVideoId(videoId)
+                .map(ResponseEntity::ok)
+                .orElseThrow();
     }
 
 }

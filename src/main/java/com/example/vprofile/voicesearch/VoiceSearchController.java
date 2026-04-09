@@ -44,8 +44,7 @@ public class VoiceSearchController {
     public ResponseEntity<?> voiceSearch(
             @RequestParam Long userId,
             @RequestParam String transcription,
-            @RequestParam(required = false) String jobId
-    ) {
+            @RequestParam(required = false) String jobId) {
         try {
             // 🔍 Call search with optional jobId filter
             List<Video> results = searchService.search(userId, transcription, jobId);
@@ -65,6 +64,7 @@ public class VoiceSearchController {
                 videoMap.put("firstName", user != null ? user.getFirstName() : null);
                 videoMap.put("email", user != null ? user.getEmail() : null);
                 videoMap.put("phoneNumber", user != null ? user.getPhoneNumber() : null);
+                videoMap.put("links", user != null ? user.getLinks() : null);
                 videoMap.put("profilePic", user != null ? user.getProfilePic() : null);
 
                 // ⭐ confidence from keyword matching

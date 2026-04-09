@@ -111,6 +111,9 @@ public class AudioAnalysisService {
         int pitchIndex = -1;
         int energyIndex = -1;
         int toneIndex = -1; // MFCC
+        int voiceProbIndex = -1;
+        int zcrIndex = -1;
+        double voiceProb = 0, zcr = 0;
 
         try (BufferedReader reader = new BufferedReader(new FileReader(outputCsv))) {
             String line;
@@ -135,6 +138,10 @@ public class AudioAnalysisService {
                             energyIndex = i;
                         else if (attr.contains("pcm_fftMag_mfcc_sma[4]_amean"))
                             toneIndex = i;
+                        else if (attr.contains("voiceProb_sma_amean"))
+                            voiceProbIndex = i;
+                        else if (attr.contains("pcm_zcr_sma_amean"))
+                            zcrIndex = i;
                     }
                     // Fallbacks if exact names not found
                     if (energyIndex == -1)
@@ -143,6 +150,10 @@ public class AudioAnalysisService {
                         toneIndex = 24;
                     if (pitchIndex == -1)
                         pitchIndex = attributes.size() - 2;
+                    if (voiceProbIndex == -1)
+                        voiceProbIndex = 14;
+                    if (zcrIndex == -1)
+                        zcrIndex = 13;
                 }
 
                 String[] parts = line.split(",");
@@ -161,10 +172,17 @@ public class AudioAnalysisService {
                     if (pitchIndex != -1 && pitchIndex < parts.length)
                         pitch = Double.parseDouble(parts[pitchIndex]);
 
+                    if (voiceProbIndex != -1 && voiceProbIndex < parts.length)
+                        voiceProb = Double.parseDouble(parts[voiceProbIndex]);
+
+                    if (zcrIndex != -1 && zcrIndex < parts.length)
+                        zcr = Double.parseDouble(parts[zcrIndex]);
+
                     // Emotion Proxy
                     emotion = (energy * 1000) + (pitch / 50);
 
                     System.out.println("Extracted - Pitch: " + pitch + ", Energy: " + energy + ", Tone: " + tone
+                            + ", VoiceProb: " + voiceProb + ", ZCR: " + zcr
                             + ", Emotion Proxy: " + emotion);
                     break;
                 }
@@ -261,10 +279,79 @@ public class AudioAnalysisService {
             }
             rateScore = Math.max(rateScore, 0.0);
 
-            int longWords = (int) Arrays.stream(words).filter(w -> w.length() >= 10).count();
-            double articulationRatio = (double) longWords / totalWords;
-            if (articulationRatio < 0.15)
-                articulationScore -= 0.3;
+            // --- Articulation Score (multi-factor) ---
+            // Factor 1: Repeated consecutive words (stuttering / poor articulation)
+            // e.g. "I I think" or "the the meeting"
+            int stutterCount = 0;
+            for (int i = 1; i < words.length; i++) {
+                if (words[i].toLowerCase().equals(words[i - 1].toLowerCase())) {
+                    stutterCount++;
+                }
+            }
+            double stutterRatio = (double) stutterCount / totalWords;
+            // Penalty: 0.3 per 5% stutter rate
+            double stutterPenalty = Math.min(0.6, Math.floor(stutterRatio / 0.05) * 0.3);
+
+            // Factor 2: Filler word density (dedicated articulation sensitivity)
+            // Higher filler density = less articulate (separate from fillerScore)
+            double articulationFillerPenalty = 0.0;
+            if (fillerRatio > 0.05)
+                articulationFillerPenalty = 0.2;
+            if (fillerRatio > 0.12)
+                articulationFillerPenalty = 0.4;
+
+            // Factor 3: Vocabulary richness (Type-Token Ratio)
+            // Low TTR means the speaker is repetitive and lacks lexical variety
+            Set<String> uniqueWords = new HashSet<>();
+            for (String w : words)
+                uniqueWords.add(w.toLowerCase().replaceAll("[^a-z]", ""));
+            uniqueWords.remove(""); // clean empty strings from punctuation stripping
+            double ttr = (double) uniqueWords.size() / totalWords;
+            // Good TTR for spontaneous speech is > 0.5. Penalise if low.
+            double ttrPenalty = 0.0;
+            if (ttr < 0.5)
+                ttrPenalty = 0.2;
+            if (ttr < 0.35)
+                ttrPenalty = 0.4;
+
+            // Factor 4: Average word length — very short avg (< 3.5 chars) suggests
+            // fragmented, unclear speech; avg > 7 is fine (substantive vocabulary)
+            double avgWordLen = Arrays.stream(words)
+                    .mapToInt(String::length)
+                    .average()
+                    .orElse(5.0);
+            double avgLenPenalty = 0.0;
+            if (avgWordLen < 3.5)
+                avgLenPenalty = 0.3; // very fragmented speech
+            else if (avgWordLen < 4.5)
+                avgLenPenalty = 0.1; // slightly fragmented
+
+            // Factor 5: Acoustic Articulation (openSMILE)
+            // Blending voicing probability and Zero Crossing Rate (consonant clarity)
+            double normVoiceProb = Math.min(1.0, voiceProb / 0.8); // High voicing = clearer speech
+            double normZCR = Math.min(1.0, zcr / 0.1); // Higher ZCR = sharper consonant formation
+            double acousticArticulationBase = (normVoiceProb * 0.7) + (normZCR * 0.3);
+
+            // Penalty for poor acoustic clarity
+            double acousticPenalty = 0.0;
+            if (acousticArticulationBase < 0.5)
+                acousticPenalty = 0.4;
+            else if (acousticArticulationBase < 0.7)
+                acousticPenalty = 0.2;
+
+            // Combine all articulation penalties (capped at 1.5 so score never <0.5 for
+            // edge cases)
+            double totalArticulationPenalty = Math.min(1.5,
+                    stutterPenalty + articulationFillerPenalty + ttrPenalty + avgLenPenalty + acousticPenalty);
+            articulationScore = Math.max(0.5, 2.0 - totalArticulationPenalty);
+
+            System.out.println("Articulation - StutterRatio: " + stutterRatio
+                    + ", FillerRatio: " + fillerRatio
+                    + ", TTR: " + ttr
+                    + ", AvgWordLen: " + avgWordLen
+                    + ", AcousticBase: " + acousticArticulationBase
+                    + " => Penalty: " + totalArticulationPenalty
+                    + ", Score: " + articulationScore);
         }
 
         // 7. Save score

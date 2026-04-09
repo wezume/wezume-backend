@@ -197,6 +197,7 @@ public class VideoController {
                 videoData.put("phoneNumber", user.getPhoneNumber());
                 videoData.put("email", user.getEmail());
                 videoData.put("profilePic", user.getProfilepicurl());
+                videoData.put("links", user.getLinks());
             } else {
                 videoData.put("firstName", "Unknown");
                 videoData.put("phoneNumber", "N/A");
@@ -297,6 +298,7 @@ public class VideoController {
                 videoData.put("firstname", user.getFirstName());
                 videoData.put("email", user.getEmail());
                 videoData.put("phonenumber", user.getPhoneNumber());
+                videoData.put("links", user.getLinks());
                 videoData.put("profilepic",
                         user.getProfilepicurl() != null ? user.getProfilepicurl() : defaultProfilePic);
             } else {
@@ -433,6 +435,7 @@ public class VideoController {
                 videoData.put("phoneNumber", videoUser.getPhoneNumber());
                 videoData.put("profilePic", videoUser.getProfilepicurl());
                 videoData.put("college", videoUser.getCollege());
+                videoData.put("links", videoUser.getLinks());
             } else {
                 videoData.put("firstName", "User");
                 videoData.put("email", "");

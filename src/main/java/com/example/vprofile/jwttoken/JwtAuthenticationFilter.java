@@ -42,13 +42,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (isValidJwtFormat(token)) {
                 if (jwtUtil.validateToken(token)) {
                     // CORRECTED LINES: We swap the method calls to get the correct data
-                    String email = jwtUtil.extractEmail(token);      // Extracts the 'sub' claim (email)
-                    String name = jwtUtil.extractUsername(token);    // Extracts the 'name' claim (username)
+                    String email = jwtUtil.extractEmail(token); // Extracts the 'sub' claim (email)
+                    String name = jwtUtil.extractUsername(token); // Extracts the 'name' claim (username)
 
                     System.out.println("Extracted email: " + email);
                     System.out.println("Extracted name: " + name);
 
-                    // We now use the 'email' to create the authentication token as it's the principal
+                    // We now use the 'email' to create the authentication token as it's the
+                    // principal
                     SecurityContextHolder.getContext()
                             .setAuthentication(new UsernamePasswordAuthenticationToken(email, null, null));
                 } else {
@@ -65,18 +66,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublicRoute(HttpServletRequest request) {
-        // Check if the request is for public routes like login, signup, or reset-password
+        // Check if the request is for public routes like login, signup, or
+        // reset-password
         String uri = request.getRequestURI();
         System.out.println("Requested URI: " + uri); // Log the URI for debugging
-        return uri.equals("/api/users/signup/user") || uri.equals("/api/login") || uri.equals("/api/users/check-Recruteremail")
-       || uri.equals("/users/check-email") || uri.equals("api/users/check-phone")|| uri.equals("/api/users/update-password")|| uri.equals("/api/auth/signup/placement")
-       || uri.equals("/api/verify-email")|| uri.equals("/api/verify/placement/{token}")|| uri.equals("/api/users/share")|| uri.equals("/api/videos/video/{videoId}")|| uri.equals("/api/auth/linkedin");
+        return uri.equals("/api/users/signup/user") || uri.equals("/api/login")
+                || uri.equals("/api/users/check-Recruteremail")
+                || uri.equals("/api/users/check-email") || uri.equals("api/users/check-phone")
+                || uri.equals("/api/users/update-password") || uri.equals("/api/auth/signup/placement")
+                || uri.equals("/api/verify-email") || uri.equals("/api/verify/placement/{token}")
+                || uri.equals("/api/users/share") || uri.equals("/api/videos/video/{videoId}")
+                || uri.equals("/api/auth/linkedin");
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            String token = bearerToken.substring(7);  // Remove "Bearer " prefix
+            String token = bearerToken.substring(7); // Remove "Bearer " prefix
             System.out.println("Extracted Token: " + token);
             return token;
         }
@@ -84,6 +90,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private boolean isValidJwtFormat(String token) {
-        return token != null && token.split("\\.").length == 3;  // Valid JWT should have 3 parts
+        return token != null && token.split("\\.").length == 3; // Valid JWT should have 3 parts
     }
 }

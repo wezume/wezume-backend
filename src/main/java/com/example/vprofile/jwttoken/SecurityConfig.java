@@ -22,21 +22,26 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();  // Using BCrypt for password hashing
+        return new BCryptPasswordEncoder(); // Using BCrypt for password hashing
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .cors(Customizer.withDefaults()) // Enable CORS configuration
-            .csrf(csrf -> csrf.disable())  // Disable CSRF using new API
-            .httpBasic(httpBasic -> httpBasic.disable())  // Disable HTTP Basic Authentication using new API
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/users/signup/user", "/api/login","/api/users/check-Recruteremail","/users/check-email","/api/users/check-phone","/api/users/update-password"
-                ,"/api/verify-email","/api/verify/placement/{token}","/api/auth/signup/placement","/api/users/share","/api/videos/video/{videoId}","/api/auth/linkedin").permitAll()  // Allow signup and login without authentication
-                .anyRequest().authenticated()  // Protect other routes
-            )
-            .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);  // Add JWT filter
+                .cors(Customizer.withDefaults()) // Enable CORS configuration
+                .csrf(csrf -> csrf.disable()) // Disable CSRF using new API
+                .httpBasic(httpBasic -> httpBasic.disable()) // Disable HTTP Basic Authentication using new API
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/users/signup/user", "/api/login", "/api/users/check-Recruteremail",
+                                "/api/users/check-email", "/api/users/check-phone", "/api/users/update-password",
+                                "/api/verify-email", "/api/verify/placement/{token}", "/api/auth/signup/placement",
+                                "/api/users/share", "/api/videos/video/{videoId}", "/api/auth/linkedin")
+                        .permitAll() // Allow signup and login without authentication
+                        .anyRequest().authenticated() // Protect other routes
+                )
+                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class); // Add
+                                                                                                                    // JWT
+                                                                                                                    // filter
 
         return http.build();
     }
