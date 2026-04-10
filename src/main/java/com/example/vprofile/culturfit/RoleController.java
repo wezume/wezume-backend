@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/roles")
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
+@CrossOrigin(origins = {"https://wezume.com", "http://localhost:5173", "http://localhost:3000"})
 public class RoleController {
 
     @Autowired
