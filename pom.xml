@@ -215,6 +215,11 @@
                 <enabled>false</enabled>
             </releases>
         </repository>
+        <repository>
+            <id>bytedeco</id>
+            <name>Bytedeco Repository</name>
+            <url>https://repo1.maven.org/maven2/org/bytedeco/</url>
+        </repository>
     </repositories>
     <pluginRepositories>
         <pluginRepository>
