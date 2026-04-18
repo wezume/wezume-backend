@@ -9,7 +9,9 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,16 +22,18 @@ import com.example.vprofile.videofolder.VideoRepository;
 
 @RestController
 @RequestMapping("/api/facial-score")
+@Lazy
 public class FacialScoreController {
     private static final Logger logger = LoggerFactory.getLogger(FacialScoreController.class);
 
     @Autowired
     private final FacialScoringRepository facialScoringRepository;
-    @Autowired
+    @Autowired(required = false)
+    @Nullable
     private final FacialScoringService facialScoringService;
     private final VideoRepository videoRepository;
 
-    public FacialScoreController(FacialScoringService facialScoringService,
+    public FacialScoreController(@Nullable FacialScoringService facialScoringService,
             VideoRepository videoRepository,
             FacialScoringRepository facialScoringRepository) {
         this.facialScoringService = facialScoringService;
@@ -70,6 +74,11 @@ public class FacialScoreController {
         }
 
         // 4. Directly analyze video from the URL
+        if (facialScoringService == null) {
+            logger.error("❌ Facial Scoring Service is not available (Haar cascade files missing)");
+            return ResponseEntity.status(503).body(null);
+        }
+
         try {
             double score = facialScoringService.analyzeVideoAndScore(videoUrl, videoId);
             return ResponseEntity.ok(score);

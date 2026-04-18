@@ -19,9 +19,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 @Service
+@Lazy
 public class FacialScoringService {
     private static final Logger logger = LoggerFactory.getLogger(FacialScoringService.class);
 
@@ -32,25 +34,35 @@ public class FacialScoringService {
     private FacialScoringRepository facialScoringRepository;
     @Autowired
     private TotalScoreService totalScoreService;
-    private final CascadeClassifier faceCascade;
-    private final CascadeClassifier smileCascade;
-    private final CascadeClassifier eyeCascade;
+    private CascadeClassifier faceCascade;
+    private CascadeClassifier smileCascade;
+    private CascadeClassifier eyeCascade;
+    private boolean cascadesLoaded = false;
 
     public FacialScoringService() {
+        logger.info("FacialScoringService initialized (cascades will be loaded on first use)");
+    }
+
+    private void ensureCascadesLoaded() throws IOException {
+        if (cascadesLoaded) {
+            return;
+        }
+
         try {
             logger.info("Loading Haar cascades for face, smile, and eyes...");
             faceCascade = loadCascadeFromResource("haarcascades/haarcascade_frontalface_default.xml");
             smileCascade = loadCascadeFromResource("haarcascades/haarcascade_smile.xml");
             eyeCascade = loadCascadeFromResource("haarcascades/haarcascade_eye.xml");
 
-            if (faceCascade.empty() || smileCascade.empty() || eyeCascade.empty()) {
+            if (faceCascade == null || faceCascade.empty() || smileCascade == null || smileCascade.empty() || eyeCascade == null || eyeCascade.empty()) {
                 throw new RuntimeException("Failed to load one or more Haar cascade classifiers.");
             }
 
             logger.info("Successfully loaded all Haar cascades.");
+            cascadesLoaded = true;
         } catch (IOException e) {
             logger.error("Error loading Haar cascades", e);
-            throw new RuntimeException("Error loading Haar cascades", e);
+            throw e;
         }
     }
 
@@ -70,6 +82,13 @@ public class FacialScoringService {
 
     @SuppressWarnings("CallToPrintStackTrace")
     public double analyzeVideoAndScore(String videoFilePath, Long videoId) {
+        try {
+            ensureCascadesLoaded();
+        } catch (IOException e) {
+            logger.error("Cannot analyze video - Haar cascade files not available", e);
+            throw new RuntimeException("Facial analysis not available", e);
+        }
+
         logger.info("🎥 Starting facial analysis for video ID: {} (Path: {})", videoId, videoFilePath);
 
         File tempDir;
