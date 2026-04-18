@@ -1,24 +1,10 @@
 package com.example.vprofile.score;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.util.Arrays;
-import java.util.Comparator;
 
-import org.bytedeco.opencv.global.opencv_imgcodecs;
-import org.bytedeco.opencv.global.opencv_imgproc;
-import org.bytedeco.opencv.opencv_core.Mat;
-import org.bytedeco.opencv.opencv_core.Rect;
-import org.bytedeco.opencv.opencv_core.RectVector;
-import org.bytedeco.opencv.opencv_core.Size;
-import org.bytedeco.opencv.opencv_objdetect.CascadeClassifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -27,69 +13,20 @@ import org.springframework.stereotype.Service;
 public class FacialScoringService {
     private static final Logger logger = LoggerFactory.getLogger(FacialScoringService.class);
 
-    @Value("${ffmpeg.path:/usr/bin/ffmpeg}")
-    private String ffmpegPath;
-
-    @Autowired
+    @Autowired(required = false)
     private FacialScoringRepository facialScoringRepository;
-    @Autowired
+    @Autowired(required = false)
     private TotalScoreService totalScoreService;
-    private CascadeClassifier faceCascade;
-    private CascadeClassifier smileCascade;
-    private CascadeClassifier eyeCascade;
-    private boolean cascadesLoaded = false;
 
     public FacialScoringService() {
-        logger.info("FacialScoringService initialized (cascades will be loaded on first use)");
+        logger.info("⚠️  FacialScoringService initialized (stub - OpenCV dependencies not available)");
     }
 
-    private void ensureCascadesLoaded() throws IOException {
-        if (cascadesLoaded) {
-            return;
-        }
-
-        try {
-            logger.info("Loading Haar cascades for face, smile, and eyes...");
-            faceCascade = loadCascadeFromResource("haarcascades/haarcascade_frontalface_default.xml");
-            smileCascade = loadCascadeFromResource("haarcascades/haarcascade_smile.xml");
-            eyeCascade = loadCascadeFromResource("haarcascades/haarcascade_eye.xml");
-
-            if (faceCascade == null || faceCascade.empty() || smileCascade == null || smileCascade.empty() || eyeCascade == null || eyeCascade.empty()) {
-                throw new RuntimeException("Failed to load one or more Haar cascade classifiers.");
-            }
-
-            logger.info("Successfully loaded all Haar cascades.");
-            cascadesLoaded = true;
-        } catch (IOException e) {
-            logger.error("Error loading Haar cascades", e);
-            throw e;
-        }
-    }
-
-    private CascadeClassifier loadCascadeFromResource(String resourcePath) throws IOException {
-        InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath);
-        if (stream == null) {
-            throw new IOException("Haar cascade file not found: " + resourcePath);
-        }
-
-        File tempFile = File.createTempFile("cascade-", ".xml");
-        tempFile.deleteOnExit();
-        Files.copy(stream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        logger.debug("Cascade resource {} written to temp file: {}", resourcePath, tempFile.getAbsolutePath());
-
-        return new CascadeClassifier(tempFile.getAbsolutePath());
-    }
-
-    @SuppressWarnings("CallToPrintStackTrace")
     public double analyzeVideoAndScore(String videoFilePath, Long videoId) {
-        try {
-            ensureCascadesLoaded();
-        } catch (IOException e) {
-            logger.error("Cannot analyze video - Haar cascade files not available", e);
-            throw new RuntimeException("Facial analysis not available", e);
-        }
-
-        logger.info("🎥 Starting facial analysis for video ID: {} (Path: {})", videoId, videoFilePath);
+        logger.warn("❌ Facial analysis not available (dependencies disabled)");
+        throw new UnsupportedOperationException("Facial analysis service is not available");
+    }
+}
 
         File tempDir;
         try {
