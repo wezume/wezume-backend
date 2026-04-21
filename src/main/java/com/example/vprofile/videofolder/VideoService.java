@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +38,7 @@ import com.example.vprofile.logincredentials.UserRepository;
 import com.example.vprofile.placementLogin.PlacementRepository;
 
 @Service
+@Lazy
 public class VideoService {
 
     private final String uploadDir = "uploads/videos/";
