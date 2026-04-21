@@ -30,7 +30,7 @@ jobs:
       - name: Upload WAR to server
         run: |
           scp -i ~/.ssh/deploy_key \
-            target/wez-vprofile-0.0.1-SNAPSHOT.war \
+            target/vprofile-0.0.1-SNAPSHOT.war \
             root@89.116.134.110:/home/wezume/htdocs/wezume.in/wez-vprofile-0.0.1-SNAPSHOT.war
 
       - name: Restart backend service
