@@ -143,8 +143,6 @@
             <artifactId>transloadit</artifactId>
             <version>1.0.0</version>
         </dependency>
-        <!-- Commented out - Facial analysis is now optional, and these dependencies cause build issues -->
-        <!--
         <dependency>
             <groupId>org.bytedeco</groupId>
             <artifactId>javacv</artifactId>
@@ -154,13 +152,8 @@
             <groupId>org.bytedeco</groupId>
             <artifactId>opencv</artifactId>
             <version>4.5.2-1.5.8</version>
+            <classifier>linux-x86_64</classifier>
         </dependency>
-        <dependency>
-            <groupId>org.bytedeco</groupId>
-            <artifactId>ffmpeg-platform</artifactId>
-            <version>5.1.2-1.5.8</version>
-        </dependency>
-        -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>

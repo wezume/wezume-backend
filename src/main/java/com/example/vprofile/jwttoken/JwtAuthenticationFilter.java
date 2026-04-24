@@ -38,28 +38,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null) {
             System.out.println("Received token: " + token);
 
-            // Validate token format
-            if (isValidJwtFormat(token)) {
-                if (jwtUtil.validateToken(token)) {
-                    // CORRECTED LINES: We swap the method calls to get the correct data
-                    String email = jwtUtil.extractEmail(token); // Extracts the 'sub' claim (email)
-                    String name = jwtUtil.extractUsername(token); // Extracts the 'name' claim (username)
-
-                    System.out.println("Extracted email: " + email);
-                    System.out.println("Extracted name: " + name);
-
-                    // We now use the 'email' to create the authentication token as it's the
-                    // principal
-                    SecurityContextHolder.getContext()
-                            .setAuthentication(new UsernamePasswordAuthenticationToken(email, null, null));
-                } else {
-                    System.out.println("JWT Validation failed for token: " + token);
-                }
-            } else {
-                System.out.println("Invalid token format for token: " + token);
+            if (!isValidJwtFormat(token) || !jwtUtil.validateToken(token)) {
+                System.out.println("JWT invalid or expired for URI: " + uri);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.getWriter().write("Token expired or invalid.");
+                return;
             }
+
+            String email = jwtUtil.extractEmail(token);
+            String name = jwtUtil.extractUsername(token);
+
+            System.out.println("Extracted email: " + email);
+            System.out.println("Extracted name: " + name);
+
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new UsernamePasswordAuthenticationToken(email, null, null));
         } else {
             System.out.println("No token found in request.");
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Authorization token missing.");
+            return;
         }
 
         filterChain.doFilter(request, response);
