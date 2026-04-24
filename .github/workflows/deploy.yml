@@ -33,6 +33,11 @@ jobs:
             target/vprofile-0.0.1-SNAPSHOT.war \
             root@89.116.134.110:/home/wezume/htdocs/wezume.in/wez-vprofile-0.0.1-SNAPSHOT.war
 
+      - name: Ensure OpenCV haarcascades on server
+        run: |
+          ssh -i ~/.ssh/deploy_key root@89.116.134.110 \
+            "apt-get install -y libopencv-dev 2>&1 | tail -3 || true"
+
       - name: Restart backend service
         run: |
           ssh -i ~/.ssh/deploy_key root@89.116.134.110 \
