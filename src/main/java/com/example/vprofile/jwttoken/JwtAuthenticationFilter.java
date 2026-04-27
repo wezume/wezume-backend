@@ -69,6 +69,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String uri = request.getRequestURI();
         System.out.println("Requested URI: " + uri); // Log the URI for debugging
         return uri.equals("/api/users/signup/user") || uri.equals("/api/login")
+                || uri.equals("/api/refresh-token")
                 || uri.equals("/api/users/check-Recruteremail")
                 || uri.equals("/api/users/check-email") || uri.equals("api/users/check-phone")
                 || uri.equals("/api/users/update-password") || uri.equals("/api/auth/signup/placement")

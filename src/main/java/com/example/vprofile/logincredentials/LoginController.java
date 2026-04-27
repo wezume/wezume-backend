@@ -78,6 +78,24 @@ public class LoginController {
         return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
     }
 
+    @PostMapping("/refresh-token")
+    public ResponseEntity<Map<String, Object>> refreshToken(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+            String email = jwtUtil.extractEmailIgnoringExpiry(token);
+            String name = jwtUtil.extractUsernameIgnoringExpiry(token);
+            if (email == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("message", "Invalid token"));
+            }
+            String newToken = jwtUtil.generateToken(name != null ? name : email, email);
+            return ResponseEntity.ok(Map.of("token", newToken));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Could not refresh token"));
+        }
+    }
+
     @GetMapping("/user-detail")
     public ResponseEntity<Map<String, Object>> getUserDetails(@RequestHeader("Authorization") String token) {
         // Extract email from the token

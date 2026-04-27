@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import java.time.Duration;
+
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -107,33 +109,44 @@ public class VoiceSearchController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("userId") Long userId) {
 
+        Path temp = null;
         try {
-            Path temp = Files.createTempFile("voice", ".wav");
+            temp = Files.createTempFile("voice", ".wav");
             Files.write(temp, file.getBytes());
 
             WebClient webClient = WebClient.builder().build();
             JsonNode response = webClient.post()
                     .uri("http://app.wezume.in:8001/transcribe")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
-                    .body(BodyInserters.fromMultipartData("audio", new FileSystemResource(temp)))
+                    .body(BodyInserters.fromMultipartData("file", new FileSystemResource(temp)))
                     .retrieve()
                     .bodyToMono(JsonNode.class)
+                    .timeout(Duration.ofSeconds(60))
                     .block();
 
-            if (response == null || response.get("transcription") == null) {
-                return ResponseEntity.internalServerError().body("Failed to transcribe audio");
+            if (response == null) {
+                return ResponseEntity.internalServerError().body("Transcription service returned no response");
             }
 
-            String transcription = response.get("transcription").asText();
+            // Handle both "transcription" (custom) and "text" (standard Whisper) field names
+            String transcription = null;
+            if (response.has("transcription")) {
+                transcription = response.get("transcription").asText();
+            } else if (response.has("text")) {
+                transcription = response.get("text").asText();
+            }
 
-            // delete temp file
-            Files.deleteIfExists(temp);
+            if (transcription == null || transcription.isBlank()) {
+                return ResponseEntity.internalServerError().body("Failed to transcribe audio");
+            }
 
             return ResponseEntity.ok(transcription);
 
         } catch (IOException e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("Voice Search Failed");
+        } finally {
+            if (temp != null) try { Files.deleteIfExists(temp); } catch (IOException ignored) {}
         }
     }
 

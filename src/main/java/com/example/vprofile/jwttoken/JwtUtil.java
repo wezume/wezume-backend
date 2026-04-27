@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 
@@ -59,6 +60,34 @@ public class JwtUtil {
         }
         return null;
     }
+    public String extractEmailIgnoringExpiry(String token) {
+        try {
+            return Jwts.parser()
+                    .setSigningKey(SECRET_KEY)
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject();
+        } catch (ExpiredJwtException e) {
+            return e.getClaims().getSubject();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String extractUsernameIgnoringExpiry(String token) {
+        try {
+            return Jwts.parser()
+                    .setSigningKey(SECRET_KEY)
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .get("name", String.class);
+        } catch (ExpiredJwtException e) {
+            return e.getClaims().get("name", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     @SuppressWarnings("UseSpecificCatch")
     public String extractEmail(String token) {
         try {
