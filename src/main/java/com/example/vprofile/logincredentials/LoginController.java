@@ -48,11 +48,15 @@ public class LoginController {
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             if (user.getPassword().equals(password)) {
-                // Generate JWT token
+                if (!user.isEnabled()) {
+                    Map<String, Object> errorResponse = new HashMap<>();
+                    errorResponse.put("message", "Please verify your email before logging in.");
+                    return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+                }
                 String token = jwtUtil.generateToken(user.getFirstName(), user.getEmail());
                 Map<String, Object> response = new HashMap<>();
-                response.put("token", token); 
-                response.put("jobOption",user.getJobOption()); // Return only the token
+                response.put("token", token);
+                response.put("jobOption",user.getJobOption());
                 return ResponseEntity.ok(response);
             }
         }
@@ -63,11 +67,15 @@ public class LoginController {
         if (placementLoginOptional.isPresent()) {
             PlacementLogin placementLogin = placementLoginOptional.get();
             if (placementLogin.getPassword().equals(password)) {
-                // Generate JWT token
+                if (!placementLogin.isEnabled()) {
+                    Map<String, Object> errorResponse = new HashMap<>();
+                    errorResponse.put("message", "Please verify your email before logging in.");
+                    return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+                }
                 String token = jwtUtil.generateToken(placementLogin.getFirstname(), placementLogin.getEmail());
                 Map<String, Object> response = new HashMap<>();
                 response.put("token", token);
-                response.put("jobOption",placementLogin.getJobOption());  // Return only the token
+                response.put("jobOption",placementLogin.getJobOption());
                 return ResponseEntity.ok(response);
             }
         }
