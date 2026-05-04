@@ -178,17 +178,17 @@ public class UserController {
         String email = emailPayload.get("email");
 
         // List of restricted domains
-        List<String> restrictedDomains = List.of("gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "example.com");
+        List<String> restrictedDomains = List.of("gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "example.com", "ac.in", "edu.in");
 
         // Extract the domain from the email
         String[] emailParts = email.split("@");
         if (emailParts.length != 2) {
             return ResponseEntity.badRequest().body(Collections.singletonMap("error", "Invalid email format"));
         }
-        String emailDomain = emailParts[1];
+        String emailDomain = emailParts[1].toLowerCase();
 
         // Check if the domain is restricted
-        if (restrictedDomains.contains(emailDomain.toLowerCase())) {
+        if (restrictedDomains.contains(emailDomain) || emailDomain.endsWith(".edu")) {
             return ResponseEntity.ok(Collections.singletonMap("error", "Public email domains are not allowed"));
         }
 
