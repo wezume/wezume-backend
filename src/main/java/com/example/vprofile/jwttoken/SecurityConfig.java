@@ -57,6 +57,7 @@ public class SecurityConfig {
         // Public endpoints that don't require authentication
         String[] publicEndpoints = {
             "/api/login",
+            "/api/refresh-token",
             "/api/users/signup/user",
             "/api/users/check-Recruteremail",
             "/api/users/check-email",
