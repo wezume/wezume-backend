@@ -67,7 +67,17 @@ public class UserController {
                         .body("Error: This phone number is already registered.");
             }
 
-            // 3. Save the profile picture and get the file URL if present
+            // 3. Block restricted domains for employer/investor accounts
+            if ("Employer".equalsIgnoreCase(jobOption) || "Investor".equalsIgnoreCase(jobOption)) {
+                String emailDomain = email.substring(email.indexOf('@') + 1).toLowerCase();
+                List<String> restrictedDomains = List.of("gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "example.com", "ac.in", "edu.in");
+                if (restrictedDomains.contains(emailDomain) || emailDomain.endsWith(".edu")) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body("Error: Academic and public email domains are not allowed for employer accounts.");
+                }
+            }
+
+            // 4. Save the profile picture and get the file URL if present
             String profilePicUrl = null;
             if (profilePic != null && !profilePic.isEmpty()) {
                 // Create a new User object to pass to the saveProfilePic method
@@ -82,7 +92,7 @@ public class UserController {
                 profilePicUrl = saveProfilePic(profilePic, user);
             }
 
-            // 4. Create the user object and set values
+            // 5. Create the user object and set values
             User user = new User();
             user.setFirstName(firstName);
             user.setLastName(lastName);
