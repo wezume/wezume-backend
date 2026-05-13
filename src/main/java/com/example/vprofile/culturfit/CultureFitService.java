@@ -6,6 +6,8 @@ import com.example.vprofile.score.FacialScoring;
 import com.example.vprofile.score.FacialScoringRepository;
 import com.example.vprofile.score.SpeechScore;
 import com.example.vprofile.score.SpeechScoreRepository;
+import com.example.vprofile.score.TotalScore;
+import com.example.vprofile.score.TotalScoreRepository;
 import com.example.vprofile.videofolder.Video;
 import com.example.vprofile.videofolder.VideoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +32,9 @@ public class CultureFitService {
 
     @Autowired
     private FacialScoringRepository facialScoringRepository;
+
+    @Autowired
+    private TotalScoreRepository totalScoreRepository;
 
     public List<CultureFitScore> getAllScores() {
         return repository.findAll();
@@ -85,7 +90,25 @@ public class CultureFitService {
         return profile;
     }
 
-    public CultureFitScore submitEvaluation(Integer candidateId, String evaluatorName, 
+    /**
+     * Computes culture fit scores for a list of videoIds using TotalScore subscores.
+     * Returns map of videoId -> [teamwork, customer, integrity, innovation, excellence] (each 1-5).
+     */
+    public Map<Long, double[]> computeBulkCultureScores(List<Long> videoIds) {
+        List<TotalScore> scores = totalScoreRepository.findAllByVideoIdIn(videoIds);
+        Map<Long, double[]> result = new HashMap<>();
+        for (TotalScore ts : scores) {
+            double teamwork    = ts.getEmotionalScore() / 10.0 * 4 + 1;
+            double customer    = ts.getClarityScore()   / 10.0 * 4 + 1;
+            double integrity   = ts.getAuthenticityScore() / 10.0 * 4 + 1;
+            double innovation  = ts.getConfidenceScore() / 10.0 * 4 + 1;
+            double excellence  = ts.getTotalScore()     / 10.0 * 4 + 1;
+            result.put(ts.getVideoId(), new double[]{teamwork, customer, integrity, innovation, excellence});
+        }
+        return result;
+    }
+
+    public CultureFitScore submitEvaluation(Integer candidateId, String evaluatorName,
                                           Integer communicationScore, Integer teamworkScore,
                                           Integer adaptabilityScore, Integer valuesAlignmentScore, 
                                           String feedback) {

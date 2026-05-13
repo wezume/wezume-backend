@@ -77,6 +77,30 @@ public class CultureFitController {
         }
     }
 
+    /**
+     * POST /api/culture-fit-scores/compute-bulk
+     * Body: { "videoIds": [1, 2, 3, ...] }
+     * Returns: { "123": [teamwork, customer, integrity, innovation, excellence], ... }
+     */
+    @PostMapping("/compute-bulk")
+    public ResponseEntity<?> computeBulk(@RequestBody Map<String, Object> request) {
+        try {
+            @SuppressWarnings("unchecked")
+            List<Number> raw = (List<Number>) request.get("videoIds");
+            if (raw == null || raw.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "videoIds is required"));
+            }
+            List<Long> videoIds = new java.util.ArrayList<>();
+            for (Number n : raw) videoIds.add(n.longValue());
+            Map<Long, double[]> scores = service.computeBulkCultureScores(videoIds);
+            return ResponseEntity.ok(scores);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal server error: " + e.getMessage()));
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> createScore(@RequestBody Map<String, Object> request) {
         try {
