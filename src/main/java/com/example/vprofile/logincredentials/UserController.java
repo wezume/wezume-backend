@@ -71,7 +71,11 @@ public class UserController {
             if ("Employer".equalsIgnoreCase(jobOption) || "Investor".equalsIgnoreCase(jobOption)) {
                 String emailDomain = email.substring(email.indexOf('@') + 1).toLowerCase();
                 List<String> restrictedDomains = List.of("gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "example.com", "ac.in", "edu.in");
-                if (restrictedDomains.contains(emailDomain) || emailDomain.endsWith(".edu")) {
+                boolean isAcademic = restrictedDomains.contains(emailDomain)
+                        || emailDomain.endsWith(".edu")
+                        || emailDomain.endsWith(".ac.in")   // e.g. sastra.ac.in, dgu.ac.in
+                        || emailDomain.endsWith(".edu.in"); // e.g. college.edu.in
+                if (isAcademic) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                             .body("Error: Academic and public email domains are not allowed for employer accounts.");
                 }

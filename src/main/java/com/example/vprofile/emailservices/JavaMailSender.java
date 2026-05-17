@@ -52,33 +52,30 @@ public class JavaMailSender { // Renamed from JavaMailSender for clarity
             return new RedirectView("https://wezume.in/error.html?reason=user_not_found");
         }
 
-        // 4. Activate the user and delete the token to make it one-time use
+        // 4. Activate the user. Token is NOT deleted immediately — email security
+        // scanners auto-click links and would consume a single-use token before the
+        // student clicks it. Letting the token expire naturally (24 h) means re-clicks
+        // are safe: setEnabled(true) on an already-enabled user is a no-op.
         User user = userOptional.get();
         user.setEnabled(true);
         userService.saveUser(user);
-        tokenService.deleteToken(verificationToken); // Enforce one-time use
 
         return new RedirectView("https://wezume.in/success.html");
     }
 
-    // Inside VerificationController.java
     @GetMapping("/verify/placement/{token}")
     public RedirectView verifyPlacementEmail(@PathVariable String token) {
         VerificationToken verificationToken = tokenService.getVerificationToken(token);
 
-        // 1. Check if token exists and is for the correct user type
         if (verificationToken == null || verificationToken.getUserType() != UserType.PLACEMENT) {
             return new RedirectView("https://wezume.in/error.html?reason=invalid_token");
         }
 
-        // 2. Check if token is expired
         if (verificationToken.getExpiryDate().before(new Date())) {
             tokenService.deleteToken(verificationToken);
             return new RedirectView("https://wezume.in/error.html?reason=expired_token");
         }
 
-        // --- THIS IS THE FIX ---
-        // Use getPlacementLoginId() to fetch the correct user.
         Optional<PlacementLogin> placementOptional = placementService.findById(verificationToken.getPlacementLoginId());
 
         if (placementOptional.isEmpty()) {
@@ -86,11 +83,9 @@ public class JavaMailSender { // Renamed from JavaMailSender for clarity
             return new RedirectView("https://wezume.in/error.html?reason=user_not_found");
         }
 
-        // 4. Activate the user and delete the token
         PlacementLogin placementLogin = placementOptional.get();
         placementLogin.setEnabled(true);
         placementService.savePlacementLogin(placementLogin);
-        tokenService.deleteToken(verificationToken);
 
         return new RedirectView("https://wezume.in/success.html");
     }
