@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -123,8 +124,9 @@ public class VideoController {
         response.put("videoUrl", video.getUrl());
         response.put("userId", video.getUserId());
         response.put("jobid", video.getJobId());
-        response.put("tumbnail", video.getThumbnailUrl());
+        response.put("thumbnail", video.getThumbnailUrl());
         response.put("audiourl", video.getAudioFilePath());
+        response.put("createdAt", video.getCreatedAt() != null ? video.getCreatedAt().toString() : null);
 
         return ResponseEntity.ok(response);
     }
@@ -385,9 +387,19 @@ public class VideoController {
         String jobId = (String) request.get("jobId");
         String college = (String) request.get("college");
         String transcriptionKeywords = (String) request.get("transcriptionKeywords");
+        String sortBy = (String) request.get("sortBy");
 
-        // Run filtering logic
-        List<Video> videos = videoService.filterVideos(keySkills, experience, industry, city, jobId, college);
+        // Run filtering logic (or sorted fetch for special sortBy modes)
+        List<Video> videos;
+        if ("mostLiked".equals(sortBy)) {
+            videos = new ArrayList<>(videoRepository.findAllOrderByLikeCountDesc());
+        } else {
+            videos = videoService.filterVideos(keySkills, experience, industry, city, jobId, college);
+            if ("newest".equals(sortBy)) {
+                videos = new ArrayList<>(videos);
+                videos.sort(Comparator.comparing(Video::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+            }
+        }
 
         // Transcription keyword filtering (if provided)
         if (transcriptionKeywords != null && !transcriptionKeywords.isBlank()) {

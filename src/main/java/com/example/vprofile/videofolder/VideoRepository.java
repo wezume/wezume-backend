@@ -82,4 +82,12 @@ public interface VideoRepository extends JpaRepository<Video, Long>, JpaSpecific
         @Query(value = "SELECT v.* FROM video v WHERE NOT EXISTS (SELECT 1 FROM speech_score ss WHERE ss.video_id = v.id) LIMIT 1", nativeQuery = true)
         Optional<Video> findFirstMissingSpeechScore();
 
+        @Query(value = "SELECT v.* FROM video v " +
+                       "LEFT JOIN (SELECT video_id, COUNT(*) AS like_count FROM likes WHERE is_like = 1 GROUP BY video_id) lc " +
+                       "ON v.id = lc.video_id " +
+                       "ORDER BY COALESCE(lc.like_count, 0) DESC", nativeQuery = true)
+        List<Video> findAllOrderByLikeCountDesc();
+
+        List<Video> findAllByOrderByCreatedAtDesc();
+
 }

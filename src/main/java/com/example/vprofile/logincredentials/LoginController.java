@@ -156,6 +156,7 @@ public class LoginController {
         response.put("phoneNumber", user.getPhoneNumber()); // Added phoneNumber
         response.put("videos", videoDetails);
         response.put("profileUrl",user.getProfilepicurl());
+        response.put("verification_status", user.isEnabled() ? "verified" : "pending");
 
         return ResponseEntity.ok(response);
     }
@@ -172,6 +173,7 @@ public class LoginController {
         response.put("jobid", placementLogin.getJobid());
         response.put("phoneNumber", placementLogin.getPhoneNumber()); // Added phoneNumber
         response.put("videos", videoDetails);
+        response.put("verification_status", placementLogin.isEnabled() ? "verified" : "pending");
 
         return ResponseEntity.ok(response);
     }

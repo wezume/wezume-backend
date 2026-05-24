@@ -91,7 +91,10 @@ public class VideoService {
         String audioFileName = Paths.get(extractedAudioPath).getFileName().toString();
         String audioUrl = "https://wezume.in/uploads/videos/audio/" + audioFileName;
 
-        // 7. Create and save the Video entity to the database
+        // 7. Remove any existing video for this user (1-video-per-user constraint)
+        videoRepository.findAllByUserId(userId).forEach(videoRepository::delete);
+
+        // 8. Create and save the Video entity to the database
         Video video = new Video();
         video.setFileName(tempCompressedFile.getName());
         video.setUserId(userId);
