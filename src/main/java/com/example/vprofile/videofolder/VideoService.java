@@ -81,21 +81,16 @@ public class VideoService {
             throw new RuntimeException("Compressed video file was not created or is empty.");
         }
 
-        // 4. Extract audio locally using FFmpeg
-        String extractedAudioPath = extractAudioWithFfmpeg(videoFilePath);
+        // 4. Delete raw upload — compressed file is smaller and is all we need going forward
+        Files.deleteIfExists(videoFilePath);
 
-        // 5. Generate thumbnail from compressed video (non-fatal)
-        String thumbnailUrl = generateThumbnailWithFfmpeg(tempCompressedFile);
-
-        // 6. Generate public-facing URLs for the video and audio files
+        // 5. Generate public-facing URL for the compressed video
         String videoUrl = "https://wezume.in/uploads/videos/" + tempCompressedFile.getName();
-        String audioFileName = Paths.get(extractedAudioPath).getFileName().toString();
-        String audioUrl = "https://wezume.in/uploads/videos/audio/" + audioFileName;
 
-        // 7. Remove any existing video for this user (1-video-per-user constraint)
+        // 6. Remove any existing video for this user (1-video-per-user constraint)
         videoRepository.findAllByUserId(userId).forEach(videoRepository::delete);
 
-        // 8. Create and save the Video entity — transcription happens async via scheduler
+        // 7. Save — audio extraction + thumbnail + transcription happen async via scheduler
         Video video = new Video();
         video.setFileName(tempCompressedFile.getName());
         video.setUserId(userId);
@@ -104,8 +99,6 @@ public class VideoService {
         video.setJobId(jobId);
         video.setCollege(college);
         video.setRoleCode(roleCode);
-        video.setAudioFilePath(audioUrl);
-        video.setThumbnailUrl(thumbnailUrl);
         video.setProcessingStatus("PROCESSING");
 
         return videoRepository.save(video);
@@ -121,7 +114,7 @@ public class VideoService {
             directory.mkdirs();
         }
         Path filePath = Paths.get(uploadDir).resolve(fileName);
-        Files.write(filePath, file.getBytes());
+        file.transferTo(filePath.toFile());
 
         return filePath;
     }
@@ -218,13 +211,30 @@ public class VideoService {
         return transcript.getText().orElse("No transcription text available");
     }
 
-    public void transcribeVideo(Long videoId) throws IOException {
+    public void transcribeVideo(Long videoId) throws IOException, InterruptedException {
         Video video = videoRepository.findById(videoId)
                 .orElseThrow(() -> new IllegalArgumentException("Video not found: " + videoId));
         if (video.getTranscription() != null) return;
 
-        String audioUrl = video.getAudioFilePath();
-        String audioFileName = audioUrl.substring(audioUrl.lastIndexOf('/') + 1);
+        // Extract audio from compressed video if not done yet
+        if (video.getAudioFilePath() == null) {
+            Path compressedPath = Paths.get(video.getFilePath());
+            String extractedAudioPath = extractAudioWithFfmpeg(compressedPath);
+            String audioFileName = Paths.get(extractedAudioPath).getFileName().toString();
+            video.setAudioFilePath("https://wezume.in/uploads/videos/audio/" + audioFileName);
+            videoRepository.save(video);
+        }
+
+        // Generate thumbnail from compressed video if not done yet
+        if (video.getThumbnailUrl() == null) {
+            String thumbUrl = generateThumbnailWithFfmpeg(new File(video.getFilePath()));
+            if (thumbUrl != null) {
+                video.setThumbnailUrl(thumbUrl);
+                videoRepository.save(video);
+            }
+        }
+
+        String audioFileName = video.getAudioFilePath().substring(video.getAudioFilePath().lastIndexOf('/') + 1);
         String localAudioPath = uploadDir + "audio/" + audioFileName;
 
         String transcription = convertAudioToText(localAudioPath);

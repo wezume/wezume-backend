@@ -30,37 +30,24 @@ public class FFmpegService {
         // desired final dimensions (e.g., 300x150 pixels) *before* running this code.
         // This avoids forcing FFmpeg to scale the image for every video frame.
 
-        // --- OPTION 1: Standard CPU Encoding (Faster than before) ---
-        // This command is much faster because it no longer scales the watermark.
-        String[] command = {
-            ffmpegPath,
-            "-i", inputFile.getAbsolutePath(),
-            "-i", watermarkPath, // The pre-scaled watermark image
-            "-filter_complex", "overlay=x=W-w-80:y=20", // Simplified, faster filter
-            "-vcodec", "libx264",
-            "-preset", "ultrafast", // Fastest CPU preset
-            "-crf", "30", // Lower quality for smaller size and faster encoding
-            "-f", "mp4",
-            "-y", // Overwrite output file if it exists
-            outputFile.getAbsolutePath()
-        };
-
-        // --- OPTION 2: Hardware Accelerated Encoding (Much Faster on Mac) ---
-        // Uncomment the following block to use Apple's VideoToolbox for hardware encoding.
-        /*
+        // Scale to max 480p + cap 24fps — interview/talking-head quality (same as Zoom/Teams),
+        // ~6-9x fewer pixels than 1080p 60fps iPhone input, making libx264 encode in ~3-5s.
         String[] command = {
             ffmpegPath,
             "-i", inputFile.getAbsolutePath(),
             "-i", watermarkPath,
-            "-filter_complex", "overlay=x=W-w-80:y=20",
-            "-vcodec", "h264_videotoolbox", // Use Apple's hardware encoder
-            "-b:v", "4M", // Target a video bitrate of 4 Mbps (adjust as needed)
-            "-allow_sw", "1", // Allow fallback to software filters if needed
+            "-filter_complex", "[0:v]scale=854:480:force_original_aspect_ratio=decrease[v];[v][1:v]overlay=x=W-w-80:y=20[out]",
+            "-map", "[out]",
+            "-map", "0:a?",
+            "-vcodec", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "28",
+            "-r", "24",
+            "-movflags", "+faststart",
             "-f", "mp4",
-            "-y", // Overwrite output file
+            "-y",
             outputFile.getAbsolutePath()
         };
-        */
 
         System.out.println("Running FFmpeg command: " + String.join(" ", command));
 
