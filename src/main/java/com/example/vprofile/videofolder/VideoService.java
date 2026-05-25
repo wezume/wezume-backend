@@ -84,15 +84,18 @@ public class VideoService {
         // 4. Extract audio locally using FFmpeg
         String extractedAudioPath = extractAudioWithFfmpeg(videoFilePath);
 
-        // 5. Generate public-facing URLs for the video and audio files
+        // 5. Generate thumbnail from compressed video (non-fatal)
+        String thumbnailUrl = generateThumbnailWithFfmpeg(tempCompressedFile);
+
+        // 6. Generate public-facing URLs for the video and audio files
         String videoUrl = "https://wezume.in/uploads/videos/" + tempCompressedFile.getName();
         String audioFileName = Paths.get(extractedAudioPath).getFileName().toString();
         String audioUrl = "https://wezume.in/uploads/videos/audio/" + audioFileName;
 
-        // 6. Remove any existing video for this user (1-video-per-user constraint)
+        // 7. Remove any existing video for this user (1-video-per-user constraint)
         videoRepository.findAllByUserId(userId).forEach(videoRepository::delete);
 
-        // 7. Create and save the Video entity — transcription happens async via scheduler
+        // 8. Create and save the Video entity — transcription happens async via scheduler
         Video video = new Video();
         video.setFileName(tempCompressedFile.getName());
         video.setUserId(userId);
@@ -102,6 +105,7 @@ public class VideoService {
         video.setCollege(college);
         video.setRoleCode(roleCode);
         video.setAudioFilePath(audioUrl);
+        video.setThumbnailUrl(thumbnailUrl);
         video.setProcessingStatus("PROCESSING");
 
         return videoRepository.save(video);
@@ -165,6 +169,38 @@ public class VideoService {
 
         return audioOutputPath.toString();
     }
+    private String generateThumbnailWithFfmpeg(File videoFile) {
+        try {
+            String videoName = videoFile.getName();
+            String baseName = videoName.substring(0, videoName.lastIndexOf('.'));
+            String thumbnailName = "thumbnail_" + baseName + ".jpg";
+            File thumbnailFile = new File(uploadDir, thumbnailName);
+
+            ProcessBuilder pb = new ProcessBuilder(
+                "/usr/bin/ffmpeg",
+                "-i", videoFile.getAbsolutePath(),
+                "-ss", "00:00:01",
+                "-vframes", "1",
+                "-y",
+                thumbnailFile.getAbsolutePath()
+            );
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                while (reader.readLine() != null) {}
+            }
+            int exitCode = process.waitFor();
+            if (exitCode != 0 || !thumbnailFile.exists() || thumbnailFile.length() == 0) {
+                System.err.println("Thumbnail generation failed for: " + videoName);
+                return null;
+            }
+            return "https://wezume.in/uploads/videos/" + thumbnailName;
+        } catch (Exception e) {
+            System.err.println("Thumbnail generation exception: " + e.getMessage());
+            return null;
+        }
+    }
+
     private String convertAudioToText(String audioFilePath) throws IOException {
         AssemblyAI client = AssemblyAI.builder()
                 .apiKey(assemblyAiApiKey)
