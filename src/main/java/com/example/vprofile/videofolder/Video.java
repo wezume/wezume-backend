@@ -38,8 +38,10 @@ public class Video {
 
     private String url;
     @Column(name = "transcription", columnDefinition = "LONGTEXT")
-    private String transcription; // Add transcription field
-    private String thumbnailurl;// Field to store video as byte array
+    private String transcription;
+    private String thumbnailurl;
+    @Column(name = "processing_status")
+    private String processingStatus; // PROCESSING | SCORING | READY
 
     public Video() {
     }
@@ -165,5 +167,13 @@ public class Video {
 
     public void setConfidence(Integer confidence) {
         this.confidence = confidence;
+    }
+
+    public String getProcessingStatus() {
+        return processingStatus;
+    }
+
+    public void setProcessingStatus(String processingStatus) {
+        this.processingStatus = processingStatus;
     }
 }

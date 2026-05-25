@@ -856,4 +856,15 @@ public class VideoController {
         return ResponseEntity.ok(counts);
     }
 
+    @GetMapping("/processing-status/{videoId}")
+    public ResponseEntity<?> getProcessingStatus(@PathVariable Long videoId) {
+        return videoRepository.findById(videoId).map(video -> {
+            Map<String, Object> result = new HashMap<>();
+            String status = video.getProcessingStatus();
+            result.put("status", status != null ? status : "PROCESSING");
+            result.put("hasTranscription", video.getTranscription() != null);
+            return ResponseEntity.ok(result);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
 };

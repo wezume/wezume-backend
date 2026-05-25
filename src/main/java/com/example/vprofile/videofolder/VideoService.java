@@ -84,18 +84,15 @@ public class VideoService {
         // 4. Extract audio locally using FFmpeg
         String extractedAudioPath = extractAudioWithFfmpeg(videoFilePath);
 
-        // 5. Generate transcription from the local audio file
-        String transcription = convertAudioToText(extractedAudioPath);
-
-        // 6. Generate public-facing URLs for the video and audio files
+        // 5. Generate public-facing URLs for the video and audio files
         String videoUrl = "https://wezume.in/uploads/videos/" + tempCompressedFile.getName();
         String audioFileName = Paths.get(extractedAudioPath).getFileName().toString();
         String audioUrl = "https://wezume.in/uploads/videos/audio/" + audioFileName;
 
-        // 7. Remove any existing video for this user (1-video-per-user constraint)
+        // 6. Remove any existing video for this user (1-video-per-user constraint)
         videoRepository.findAllByUserId(userId).forEach(videoRepository::delete);
 
-        // 8. Create and save the Video entity to the database
+        // 7. Create and save the Video entity — transcription happens async via scheduler
         Video video = new Video();
         video.setFileName(tempCompressedFile.getName());
         video.setUserId(userId);
@@ -104,8 +101,8 @@ public class VideoService {
         video.setJobId(jobId);
         video.setCollege(college);
         video.setRoleCode(roleCode);
-        video.setAudioFilePath(audioUrl); // The public URL for the audio
-        video.setTranscription(transcription);
+        video.setAudioFilePath(audioUrl);
+        video.setProcessingStatus("PROCESSING");
 
         return videoRepository.save(video);
     }
@@ -183,6 +180,21 @@ public class VideoService {
             throw new IOException("Transcription error: " + transcript.getError().orElse("Unknown error"));
         }
         return transcript.getText().orElse("No transcription text available");
+    }
+
+    public void transcribeVideo(Long videoId) throws IOException {
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new IllegalArgumentException("Video not found: " + videoId));
+        if (video.getTranscription() != null) return;
+
+        String audioUrl = video.getAudioFilePath();
+        String audioFileName = audioUrl.substring(audioUrl.lastIndexOf('/') + 1);
+        String localAudioPath = uploadDir + "audio/" + audioFileName;
+
+        String transcription = convertAudioToText(localAudioPath);
+        video.setTranscription(transcription);
+        video.setProcessingStatus("SCORING");
+        videoRepository.save(video);
     }
 
     public Optional<Video> getLatestVideoByUserId(Long userId) {

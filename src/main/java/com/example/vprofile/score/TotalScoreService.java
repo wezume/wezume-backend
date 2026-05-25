@@ -5,6 +5,8 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.example.vprofile.videofolder.VideoRepository;
+
 @Service
 public class TotalScoreService {
 
@@ -16,6 +18,9 @@ public class TotalScoreService {
 
     @Autowired
     private TotalScoreRepository totalScoreRepository;
+
+    @Autowired
+    private VideoRepository videoRepository;
 
     public void computeTotalScoreIfReady(Long videoId) {
         // Skip if already scored
@@ -67,5 +72,10 @@ public class TotalScoreService {
         score.setTotalScore(total);
 
         totalScoreRepository.save(score);
+
+        videoRepository.findById(videoId).ifPresent(video -> {
+            video.setProcessingStatus("READY");
+            videoRepository.save(video);
+        });
     }
 }

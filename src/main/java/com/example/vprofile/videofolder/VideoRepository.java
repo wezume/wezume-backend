@@ -79,7 +79,10 @@ public interface VideoRepository extends JpaRepository<Video, Long>, JpaSpecific
         @Query(value = "SELECT v.* FROM video v WHERE NOT EXISTS (SELECT 1 FROM facial_scoring fs WHERE fs.video_id = v.id) LIMIT 1", nativeQuery = true)
         Optional<Video> findFirstMissingFacialScore();
 
-        @Query(value = "SELECT v.* FROM video v WHERE NOT EXISTS (SELECT 1 FROM speech_score ss WHERE ss.video_id = v.id) LIMIT 1", nativeQuery = true)
+        @Query(value = "SELECT v.* FROM video v WHERE v.processing_status = 'PROCESSING' AND v.transcription IS NULL LIMIT 1", nativeQuery = true)
+        Optional<Video> findFirstNeedingTranscription();
+
+        @Query(value = "SELECT v.* FROM video v WHERE NOT EXISTS (SELECT 1 FROM speech_score ss WHERE ss.video_id = v.id) AND v.transcription IS NOT NULL LIMIT 1", nativeQuery = true)
         Optional<Video> findFirstMissingSpeechScore();
 
         @Query(value = "SELECT v.* FROM video v " +

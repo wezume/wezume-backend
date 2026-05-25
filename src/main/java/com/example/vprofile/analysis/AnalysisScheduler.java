@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import com.example.vprofile.score.FacialScoringService;
 import com.example.vprofile.videofolder.Video;
 import com.example.vprofile.videofolder.VideoRepository;
+import com.example.vprofile.videofolder.VideoService;
 
 @Component
 public class AnalysisScheduler {
@@ -19,11 +20,30 @@ public class AnalysisScheduler {
     @Autowired
     private VideoRepository videoRepository;
 
+    @Autowired
+    private VideoService videoService;
+
     @Autowired(required = false)
     private FacialScoringService facialScoringService;
 
     @Autowired
     private AudioAnalysisService audioAnalysisService;
+
+    // Scheduler for Transcription - Runs every 30s, picks up newly uploaded videos
+    @Scheduled(fixedRate = 30000)
+    public void scheduleTranscription() {
+        Optional<Video> videoOpt = videoRepository.findFirstNeedingTranscription();
+        if (videoOpt.isPresent()) {
+            Video video = videoOpt.get();
+            try {
+                logger.info("🎙 Starting transcription for video ID: {}", video.getId());
+                videoService.transcribeVideo(video.getId());
+                logger.info("✅ Transcription complete for video ID: {}", video.getId());
+            } catch (Exception e) {
+                logger.error("❌ Transcription failed for video ID {}: {}", video.getId(), e.getMessage(), e);
+            }
+        }
+    }
 
     // Scheduler for Facial Analysis - Runs every minute
     @Scheduled(cron = "0 * * * * *")
