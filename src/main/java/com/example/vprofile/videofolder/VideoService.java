@@ -63,9 +63,10 @@ public class VideoService {
     public Video saveVideo(MultipartFile file, Long userId, String jobId, String college, String roleCode) throws IOException, InterruptedException {
         validateUser(userId);
 
-        // 1. Save the uploaded file to a temporary location
-        Path videoFilePath = saveUploadedFile(file);
-        File tempCompressedFile = new File(uploadDir, "compressed_" + file.getOriginalFilename());
+        // 1. Save the uploaded file to a temporary location (userId-prefixed to prevent overwrite collisions)
+        String userPrefix = "user" + userId + "_";
+        Path videoFilePath = saveUploadedFile(file, userPrefix + file.getOriginalFilename());
+        File tempCompressedFile = new File(uploadDir, "compressed_" + userPrefix + file.getOriginalFilename());
 
         // 2. Compress the video file
         try {
@@ -113,12 +114,12 @@ public class VideoService {
             throw new IllegalArgumentException("User with ID " + userId + " does not exist.");
         }
     }
-    private Path saveUploadedFile(MultipartFile file) throws IOException {
+    private Path saveUploadedFile(MultipartFile file, String fileName) throws IOException {
         File directory = new File(uploadDir);
         if (!directory.exists()) {
             directory.mkdirs();
         }
-        Path filePath = Paths.get(uploadDir).resolve(file.getOriginalFilename());
+        Path filePath = Paths.get(uploadDir).resolve(fileName);
         Files.write(filePath, file.getBytes());
 
         return filePath;
