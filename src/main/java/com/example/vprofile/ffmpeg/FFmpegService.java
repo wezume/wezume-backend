@@ -36,7 +36,7 @@ public class FFmpegService {
             ffmpegPath,
             "-i", inputFile.getAbsolutePath(),
             "-i", watermarkPath,
-            "-filter_complex", "[0:v]scale=854:480:force_original_aspect_ratio=decrease[v];[1:v]scale=120:-1[wm];[v][wm]overlay=x=W-w-10:y=10[out]",
+            "-filter_complex", "[0:v]scale=854:480:force_original_aspect_ratio=decrease[v];[1:v]scale=200:-1:flags=lanczos[wm];[v][wm]overlay=x=W-w-16:y=H*0.12[out]",
             "-map", "[out]",
             "-map", "0:a?",
             "-vcodec", "libx264",

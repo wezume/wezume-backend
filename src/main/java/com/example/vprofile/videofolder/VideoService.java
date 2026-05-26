@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,29 +72,41 @@ public class VideoService {
         File compressedFile = rawAbs.resolveSibling(compressedName).toFile();
         String videoUrl = "https://wezume.in/uploads/videos/" + compressedName;
 
-        // Compress synchronously — file must exist at URL before response returns to app
-        try {
-            ffmpegService.compressVideo(rawAbs.toFile(), compressedFile);
-        } catch (Exception e) {
-            System.err.println("FFmpeg failed: " + e.getMessage());
-            throw new IOException("Video compression failed: " + e.getMessage(), e);
-        }
-        Files.deleteIfExists(rawAbs);
-
         // Remove any existing video for this user (1-video-per-user constraint)
         videoRepository.findAllByUserId(userId).forEach(videoRepository::delete);
 
+        // Save immediately so the app can navigate to status screen without waiting for FFmpeg
         Video video = new Video();
         video.setFileName(compressedName);
         video.setUserId(userId);
-        video.setFilePath(compressedFile.getAbsolutePath());
-        video.setUrl(videoUrl);
+        video.setFilePath(null);   // set after FFmpeg completes
+        video.setUrl(null);        // set after FFmpeg completes
         video.setJobId(jobId);
         video.setCollege(college);
         video.setRoleCode(roleCode);
         video.setProcessingStatus("PROCESSING");
+        Video saved = videoRepository.save(video);
+        final Long videoId = saved.getId();
 
-        return videoRepository.save(video);
+        // Compress async — scheduler waits for filePath != null before transcribing
+        CompletableFuture.runAsync(() -> {
+            try {
+                ffmpegService.compressVideo(rawAbs.toFile(), compressedFile);
+                Files.deleteIfExists(rawAbs);
+                Video v = videoRepository.findById(videoId).orElseThrow();
+                v.setFilePath(compressedFile.getAbsolutePath());
+                v.setUrl(videoUrl);
+                videoRepository.save(v);
+            } catch (Exception e) {
+                System.err.println("Async FFmpeg failed for video " + videoId + ": " + e.getMessage());
+                videoRepository.findById(videoId).ifPresent(v -> {
+                    v.setProcessingStatus("ERROR");
+                    videoRepository.save(v);
+                });
+            }
+        });
+
+        return saved;
     }
     private void validateUser(Long userId) {
         if (!userRepository.existsById(userId)) {

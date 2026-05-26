@@ -260,7 +260,7 @@ public class FacialScoringService {
             }
         }
 
-        double smileScore = 0.5;
+        double smileScore = 0.0;
         if (frameCount > 0) {
             double smilePercentage = (double) smileCount / frameCount;
             logger.info("📊 Smile Stats: {}/{} ({}%)", smileCount, frameCount,
@@ -272,7 +272,7 @@ public class FacialScoringService {
             }
         }
 
-        double eyeScore = 0.5;
+        double eyeScore = 0.0;
         if (frameCount > 0) {
             double eyePercentage = (double) eyeContactCount / frameCount;
             logger.info("📊 Eye Stats: {}/{} ({}%)", eyeContactCount, frameCount,
@@ -281,7 +281,7 @@ public class FacialScoringService {
             eyeScore = Math.min(2.5, eyeBlocks * 0.5);
         }
 
-        double straightFaceScore = 0.5;
+        double straightFaceScore = 0.0;
         if (frameCount > 0) {
             double straightFacePercentage = (double) straightFaceCount / frameCount;
             logger.info("📊 Stillness Stats for ID {}: {}/{} ({}%)", videoId, straightFaceCount, frameCount,

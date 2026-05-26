@@ -247,9 +247,12 @@ public class AudioAnalysisService {
             System.err.println("Transcript fetch failed: " + e.getMessage());
         }
         System.out.println("Transcript: " + transcript);
-        double fillerScore = 2.0, rateScore = 2.0, articulationScore = 2.0;
+        double fillerScore = 0.0, rateScore = 0.0, articulationScore = 0.0;
 
         if (transcript != null && !transcript.isEmpty()) {
+            fillerScore = 2.0;
+            rateScore = 2.0;
+            articulationScore = 2.0;
             String[] fillerWords = { "um", "uh", "like", "you know", "actually", "basically", "so", "well", "hmm" };
             Set<String> fillerSet = new HashSet<>(Arrays.asList(fillerWords));
 

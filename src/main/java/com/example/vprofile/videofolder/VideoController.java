@@ -862,6 +862,7 @@ public class VideoController {
             result.put("status", status != null ? status : "PROCESSING");
             result.put("hasTranscription", video.getTranscription() != null);
             result.put("videoReady", video.getFilePath() != null);
+            result.put("videoUrl", video.getUrl());
             return ResponseEntity.ok(result);
         }).orElse(ResponseEntity.notFound().build());
     }
