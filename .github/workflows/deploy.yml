@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
 
     steps:
       - uses: actions/checkout@v4
@@ -20,25 +20,13 @@ jobs:
       - name: Build WAR
         run: ./mvnw clean package -DskipTests -Djavacpp.platform=linux-x86_64
 
-      - name: Set up SSH key
+      - name: Deploy WAR
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 89.116.134.110 >> ~/.ssh/known_hosts
-
-      - name: Upload WAR to server
-        run: |
-          scp -i ~/.ssh/deploy_key \
-            target/vprofile-0.0.1-SNAPSHOT.war \
-            root@89.116.134.110:/home/wezume/htdocs/wezume.in/wez-vprofile-0.0.1-SNAPSHOT.war
-
-      - name: Ensure OpenCV haarcascades on server
-        run: |
-          ssh -i ~/.ssh/deploy_key root@89.116.134.110 \
-            "apt-get install -y libopencv-dev 2>&1 | tail -3 || true"
+          cp target/vprofile-0.0.1-SNAPSHOT.war \
+            /home/wezume/htdocs/wezume.in/wez-vprofile-0.0.1-SNAPSHOT.war
 
       - name: Restart backend service
         run: |
-          ssh -i ~/.ssh/deploy_key root@89.116.134.110 \
-            "systemctl restart wezume-backend && sleep 5 && systemctl status wezume-backend --no-pager"
+          systemctl restart wezume-backend
+          sleep 5
+          systemctl status wezume-backend --no-pager
