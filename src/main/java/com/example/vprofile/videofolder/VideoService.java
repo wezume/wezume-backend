@@ -114,7 +114,7 @@ public class VideoService {
             directory.mkdirs();
         }
         Path filePath = Paths.get(uploadDir).resolve(fileName);
-        file.transferTo(filePath.toFile());
+        file.transferTo(filePath.toAbsolutePath().toFile());
 
         return filePath;
     }
