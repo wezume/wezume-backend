@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,48 +61,49 @@ public class VideoService {
     private String assemblyAiApiKey;
 
     @SuppressWarnings({"UseSpecificCatch", "CallToPrintStackTrace"})
-    public Video saveVideo(MultipartFile file, Long userId, String jobId, String college, String roleCode) throws IOException, InterruptedException {
+    public Video saveVideo(MultipartFile file, Long userId, String jobId, String college, String roleCode) throws IOException {
         validateUser(userId);
 
-        // 1. Save the uploaded file to a temporary location (userId-prefixed to prevent overwrite collisions)
         String userPrefix = "user" + userId + "_";
-        Path videoFilePath = saveUploadedFile(file, userPrefix + file.getOriginalFilename());
-        File tempCompressedFile = new File(uploadDir, "compressed_" + userPrefix + file.getOriginalFilename());
+        Path rawFilePath = saveUploadedFile(file, userPrefix + file.getOriginalFilename());
+        Path rawAbs = rawFilePath.toAbsolutePath();
 
-        // 2. Compress the video file
-        try {
-            ffmpegService.compressVideo(videoFilePath.toFile(), tempCompressedFile);
-        } catch (Exception e) {
-            e.printStackTrace(); // It's better to use a logger here
-            throw e;
-        }
+        String compressedName = "compressed_" + userPrefix + file.getOriginalFilename();
+        File compressedFile = rawAbs.resolveSibling(compressedName).toFile();
+        String videoUrl = "https://wezume.in/uploads/videos/" + compressedName;
 
-        // 3. Ensure the compressed file was created successfully
-        if (!tempCompressedFile.exists() || tempCompressedFile.length() == 0) {
-            throw new RuntimeException("Compressed video file was not created or is empty.");
-        }
-
-        // 4. Delete raw upload — compressed file is smaller and is all we need going forward
-        Files.deleteIfExists(videoFilePath);
-
-        // 5. Generate public-facing URL for the compressed video
-        String videoUrl = "https://wezume.in/uploads/videos/" + tempCompressedFile.getName();
-
-        // 6. Remove any existing video for this user (1-video-per-user constraint)
+        // Remove any existing video for this user (1-video-per-user constraint)
         videoRepository.findAllByUserId(userId).forEach(videoRepository::delete);
 
-        // 7. Save — audio extraction + thumbnail + transcription happen async via scheduler
+        // Save DB record immediately — filePath set to null until FFmpeg completes in background
         Video video = new Video();
-        video.setFileName(tempCompressedFile.getName());
+        video.setFileName(compressedName);
         video.setUserId(userId);
-        video.setFilePath(tempCompressedFile.getAbsolutePath());
+        video.setFilePath(null);
         video.setUrl(videoUrl);
         video.setJobId(jobId);
         video.setCollege(college);
         video.setRoleCode(roleCode);
         video.setProcessingStatus("PROCESSING");
+        Video saved = videoRepository.save(video);
 
-        return videoRepository.save(video);
+        // Compress video in background; transcription scheduler waits for filePath to be set
+        final Long videoId = saved.getId();
+        CompletableFuture.runAsync(() -> {
+            try {
+                ffmpegService.compressVideo(rawAbs.toFile(), compressedFile);
+                Files.deleteIfExists(rawAbs);
+                videoRepository.findById(videoId).ifPresent(v -> {
+                    v.setFilePath(compressedFile.getAbsolutePath());
+                    videoRepository.save(v);
+                });
+            } catch (Exception e) {
+                System.err.println("Async FFmpeg failed for video " + videoId + ": " + e.getMessage());
+                try { Files.deleteIfExists(rawAbs); } catch (Exception ignored) {}
+            }
+        });
+
+        return saved;
     }
     private void validateUser(Long userId) {
         if (!userRepository.existsById(userId)) {

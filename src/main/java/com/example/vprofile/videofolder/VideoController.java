@@ -95,11 +95,9 @@ public class VideoController {
         }
 
         try {
-            // Save the video and process the file
-            Video video = videoService.saveVideo(file, userId, jobId, college, roleCode); // Ensure this method handles
-                                                                                          // the file and user
+            Video video = videoService.saveVideo(file, userId, jobId, college, roleCode);
             return ResponseEntity.status(HttpStatus.CREATED).body(video);
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("File upload failed: " + e.getMessage());
         }
@@ -863,6 +861,7 @@ public class VideoController {
             String status = video.getProcessingStatus();
             result.put("status", status != null ? status : "PROCESSING");
             result.put("hasTranscription", video.getTranscription() != null);
+            result.put("videoReady", video.getFilePath() != null);
             return ResponseEntity.ok(result);
         }).orElse(ResponseEntity.notFound().build());
     }
