@@ -114,15 +114,16 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    // Inside your UserService.java
     public User registerNewUser(User user) {
         user.setEnabled(false);
-
-        // 1. Save the user. The 'savedUser' object now contains the database ID.
         User savedUser = userRepository.save(user);
 
-        // 2. Pass the 'savedUser' (with the ID) to the token service.
-        tokenService.createVerificationTokenForUser(savedUser);
+        // Verification email is best-effort — never block registration if it fails
+        try {
+            tokenService.createVerificationTokenForUser(savedUser);
+        } catch (Exception e) {
+            System.err.println("Verification email failed for " + savedUser.getEmail() + ": " + e.getMessage());
+        }
 
         return savedUser;
     }

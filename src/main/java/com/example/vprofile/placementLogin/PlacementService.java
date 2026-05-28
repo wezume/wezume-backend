@@ -84,12 +84,14 @@ public boolean existsByPhoneNumber(String phoneNumber) {
 
 public PlacementLogin registerNewPlacementAccount(PlacementLogin placementLogin) {
     placementLogin.setEnabled(false);
-
-    // 1. Save the user. The 'savedUser' object now contains the database ID.
     PlacementLogin savedUser = placementRepository.save(placementLogin);
 
-    // 2. Pass the 'savedUser' (with the ID) to the token service.
-    verificationTokenService.createVerificationTokenForPlacement(savedUser);
+    // Verification email is best-effort — never block registration if it fails
+    try {
+        verificationTokenService.createVerificationTokenForPlacement(savedUser);
+    } catch (Exception e) {
+        System.err.println("Verification email failed for " + savedUser.getEmail() + ": " + e.getMessage());
+    }
 
     return savedUser;
 }
