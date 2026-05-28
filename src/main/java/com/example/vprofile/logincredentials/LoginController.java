@@ -15,9 +15,11 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.vprofile.emailservices.VerificationTokenService;
 import com.example.vprofile.jwttoken.JwtUtil;
 import com.example.vprofile.placementLogin.PlacementLogin;
 import com.example.vprofile.placementLogin.PlacementRepository;
+import com.example.vprofile.placementLogin.PlacementService;
 import com.example.vprofile.videofolder.Video;
 import com.example.vprofile.videofolder.VideoRepository;
 
@@ -29,13 +31,22 @@ public class LoginController {
     private UserRepository userRepository;
 
     @Autowired
+    private UserService userService;
+
+    @Autowired
     private PlacementRepository placementRepository;
+
+    @Autowired
+    private PlacementService placementService;
 
     @Autowired
     private JwtUtil jwtUtil;
 
     @Autowired
     private VideoRepository videoRepository;
+
+    @Autowired
+    private VerificationTokenService verificationTokenService;
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> payload) {
@@ -48,15 +59,10 @@ public class LoginController {
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             if (user.getPassword().equals(password)) {
-                if (!user.isEnabled()) {
-                    Map<String, Object> errorResponse = new HashMap<>();
-                    errorResponse.put("message", "Please verify your email before logging in.");
-                    return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
-                }
                 String token = jwtUtil.generateToken(user.getFirstName(), user.getEmail());
                 Map<String, Object> response = new HashMap<>();
                 response.put("token", token);
-                response.put("jobOption",user.getJobOption());
+                response.put("jobOption", user.getJobOption());
                 return ResponseEntity.ok(response);
             }
         }
@@ -67,15 +73,10 @@ public class LoginController {
         if (placementLoginOptional.isPresent()) {
             PlacementLogin placementLogin = placementLoginOptional.get();
             if (placementLogin.getPassword().equals(password)) {
-                if (!placementLogin.isEnabled()) {
-                    Map<String, Object> errorResponse = new HashMap<>();
-                    errorResponse.put("message", "Please verify your email before logging in.");
-                    return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
-                }
                 String token = jwtUtil.generateToken(placementLogin.getFirstname(), placementLogin.getEmail());
                 Map<String, Object> response = new HashMap<>();
                 response.put("token", token);
-                response.put("jobOption",placementLogin.getJobOption());
+                response.put("jobOption", placementLogin.getJobOption());
                 return ResponseEntity.ok(response);
             }
         }
@@ -176,6 +177,39 @@ public class LoginController {
         response.put("verification_status", placementLogin.isEnabled() ? "verified" : "pending");
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify/send")
+    public ResponseEntity<Map<String, Object>> resendVerificationEmail(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Email is required"));
+        }
+
+        Optional<User> userOptional = userService.findByEmail(email);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if (user.isEnabled()) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "Email is already verified"));
+            }
+            verificationTokenService.createVerificationTokenForUser(user);
+            return ResponseEntity.ok(Map.of("message", "Verification email sent"));
+        }
+
+        Optional<PlacementLogin> placementOptional = placementRepository.findByEmail(email);
+        if (placementOptional.isPresent()) {
+            PlacementLogin placement = placementOptional.get();
+            if (placement.isEnabled()) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "Email is already verified"));
+            }
+            verificationTokenService.createVerificationTokenForPlacement(placement);
+            return ResponseEntity.ok(Map.of("message", "Verification email sent"));
+        }
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("message", "No account found with this email"));
     }
 
     // Helper method to fetch video details by user ID

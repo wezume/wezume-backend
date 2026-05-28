@@ -37,7 +37,7 @@ public class UserController {
     private UserService userService;
 
     @PostMapping("/signup/user")
-    public ResponseEntity<String> signupUser(@RequestParam("firstName") String firstName,
+    public ResponseEntity<?> signupUser(@RequestParam("firstName") String firstName,
             @RequestParam("email") String email,
             @RequestParam("phoneNumber") String phoneNumber,
             @RequestParam("password") String password,
@@ -58,13 +58,13 @@ public class UserController {
             // 1. Check if the email already exists
             if (userService.existsByEmail(email)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Error: This email address is already registered.");
+                        .body(Map.of("message", "This email address is already registered."));
             }
 
             // 2. Check if the phone number already exists
             if (userService.existsByPhoneNumber(phoneNumber)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Error: This phone number is already registered.");
+                        .body(Map.of("message", "This phone number is already registered."));
             }
 
             // 3. Block restricted domains for employer/investor accounts
@@ -73,11 +73,11 @@ public class UserController {
                 List<String> restrictedDomains = List.of("gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "example.com", "ac.in", "edu.in");
                 boolean isAcademic = restrictedDomains.contains(emailDomain)
                         || emailDomain.endsWith(".edu")
-                        || emailDomain.endsWith(".ac.in")   // e.g. sastra.ac.in, dgu.ac.in
-                        || emailDomain.endsWith(".edu.in"); // e.g. college.edu.in
+                        || emailDomain.endsWith(".ac.in")
+                        || emailDomain.endsWith(".edu.in");
                 if (isAcademic) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                            .body("Error: Academic and public email domains are not allowed for employer accounts.");
+                            .body(Map.of("message", "Academic and public email domains are not allowed for employer accounts."));
                 }
             }
 
@@ -129,7 +129,7 @@ public class UserController {
             e.printStackTrace();
             System.out.println("Error during signup: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("An unexpected error occurred during registration.");
+                    .body(Map.of("message", "An unexpected error occurred during registration. Please try again."));
         }
     }
 
