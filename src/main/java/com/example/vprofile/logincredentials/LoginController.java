@@ -157,6 +157,9 @@ public class LoginController {
         response.put("phoneNumber", user.getPhoneNumber()); // Added phoneNumber
         response.put("videos", videoDetails);
         response.put("profileUrl",user.getProfilepicurl());
+        response.put("experience", user.getExperience());
+        response.put("education", user.getEducation());
+        response.put("links", user.getLinks());
         response.put("verification_status", user.isEnabled() ? "verified" : "pending");
 
         return ResponseEntity.ok(response);

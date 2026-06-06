@@ -66,6 +66,7 @@ public class User {
     @Column(name = "links")
     private String links;
 
+    private String education;
     private boolean enabled;
 
     // Constructors
@@ -210,6 +211,14 @@ public class User {
 
     public void setIndustry(String industry) {
         this.industry = industry;
+    }
+
+    public String getEducation() {
+        return education;
+    }
+
+    public void setEducation(String education) {
+        this.education = education;
     }
 
     public String getCurrentEmployer() {

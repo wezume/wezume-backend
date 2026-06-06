@@ -253,6 +253,7 @@ public class UserController {
             @RequestParam(value = "currentRole", required = false) String currentRole,
             @RequestParam(value = "experience", required = false) String experience,
             @RequestParam(value = "industry", required = false) String industry,
+            @RequestParam(value = "education", required = false) String education,
             @RequestParam(value = "currentEmployer", required = false) String currentEmployer,
             @RequestParam(value = "keySkills", required = false) String keySkills,
             @RequestParam(value = "college", required = false) String college,
@@ -296,6 +297,9 @@ public class UserController {
             }
             if (industry != null) {
                 existingUser.setIndustry(industry);
+            }
+            if (education != null) {
+                existingUser.setEducation(education);
             }
             if (currentEmployer != null) {
                 existingUser.setCurrentEmployer(currentEmployer);
