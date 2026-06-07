@@ -343,7 +343,7 @@ public class UserController {
                 existingUser.setProfilepicurl(profilePicUrl);
             }
 
-            User updatedUser = userService.updateUser(userId, existingUser);
+            User updatedUser = userService.saveUser(existingUser);
             return ResponseEntity.ok(updatedUser);
 
         } catch (Exception e) {
