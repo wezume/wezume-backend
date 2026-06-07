@@ -105,6 +105,10 @@ public class UserService {
                 existingUser.setLinks(updatedUser.getLinks());
             }
 
+            if (updatedUser.getEducation() != null) {
+                existingUser.setEducation(updatedUser.getEducation());
+            }
+
             existingUser.setEnabled(updatedUser.isEnabled());
             return userRepository.save(existingUser);
         }).orElseThrow(() -> new RuntimeException("User not found with ID: " + id));
