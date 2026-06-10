@@ -364,13 +364,14 @@ public class VideoService {
         return formattedTime;
     }
 
-    public List<Video> filterVideos(
+    public Page<Video> filterVideos(
             String keySkills,
             String experience,
             String industry,
             String city,
             String jobId,
-            String college
+            String college,
+            Pageable pageable
     ) {
         String keySkillsLower = (keySkills == null || keySkills.isBlank()) ? null : keySkills.toLowerCase();
 
@@ -392,7 +393,7 @@ public class VideoService {
             spec = spec.and(VideoSpecification.hasCollege(college));
         }
 
-        return videoRepository.findAll(spec);
+        return videoRepository.findAll(spec, pageable);
     }
 
     private List<String> toList(String value) {

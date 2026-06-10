@@ -22,9 +22,8 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
-import java.util.Comparator;
-
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -401,22 +400,24 @@ public class VideoController {
         String transcriptionKeywords = (String) request.get("transcriptionKeywords");
         String sortBy = (String) request.get("sortBy");
 
-        List<Video> videos;
+        // DB-level pagination — fetch only the requested page, not the entire table
+        PageRequest pageRequest = PageRequest.of(page, size);
+        Page<Video> videoPage;
         if ("mostLiked".equals(sortBy)) {
-            videos = new ArrayList<>(videoRepository.findAllOrderByLikeCountDesc());
+            videoPage = videoRepository.findAllOrderByLikeCountDesc(pageRequest);
+        } else if ("newest".equals(sortBy)) {
+            videoPage = videoRepository.findAllByOrderByCreatedAtDesc(pageRequest);
         } else {
-            videos = videoService.filterVideos(keySkills, experience, industry, city, jobId, college);
-            if ("newest".equals(sortBy)) {
-                videos = new ArrayList<>(videos);
-                videos.sort(Comparator.comparing(Video::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
-            }
+            videoPage = videoService.filterVideos(keySkills, experience, industry, city, jobId, college, pageRequest);
         }
+
+        List<Video> paginatedVideos = videoPage.getContent();
 
         if (transcriptionKeywords != null && !transcriptionKeywords.isBlank()) {
             List<String> keywordList = Arrays.stream(transcriptionKeywords.split(","))
                     .map(String::trim).map(String::toLowerCase)
                     .filter(s -> !s.isEmpty()).collect(Collectors.toList());
-            videos = videos.stream()
+            paginatedVideos = paginatedVideos.stream()
                     .filter(video -> {
                         String transcription = video.getTranscription() == null ? ""
                                 : video.getTranscription().toLowerCase();
@@ -425,12 +426,10 @@ public class VideoController {
                     .collect(Collectors.toList());
         }
 
-        int totalVideos = videos.size();
-        int totalPages = (int) Math.ceil((double) totalVideos / size);
-
-        int fromIndex = Math.min(page * size, totalVideos);
-        int toIndex = Math.min((page + 1) * size, totalVideos);
-        List<Video> paginatedVideos = videos.subList(fromIndex, toIndex);
+        // Batch user lookup — one query instead of N individual SELECTs
+        List<Long> userIds = paginatedVideos.stream().map(Video::getUserId).collect(Collectors.toList());
+        Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(u -> u.getId(), u -> u));
 
         List<Map<String, Object>> videoResponses = new ArrayList<>();
         for (Video video : paginatedVideos) {
@@ -441,7 +440,7 @@ public class VideoController {
             videoData.put("thumbnail", video.getThumbnailUrl());
             videoData.put("jobId", video.getJobId());
 
-            User videoUser = userRepository.findById(video.getUserId()).orElse(null);
+            User videoUser = userMap.get(video.getUserId());
             if (videoUser != null) {
                 videoData.put("firstName", videoUser.getFirstName());
                 videoData.put("email", videoUser.getEmail());
@@ -462,7 +461,7 @@ public class VideoController {
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("videos", videoResponses);
         responseBody.put("currentPage", page);
-        responseBody.put("totalPages", totalPages);
+        responseBody.put("totalPages", videoPage.getTotalPages());
 
         return ResponseEntity.ok(responseBody);
     }
