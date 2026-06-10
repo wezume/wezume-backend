@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -76,13 +77,13 @@ public interface VideoRepository extends JpaRepository<Video, Long>, JpaSpecific
 
         List<Video> findAllByUserIdAndJobId(Long userId, String jobId);
 
-        @Query(value = "SELECT v.* FROM video v WHERE NOT EXISTS (SELECT 1 FROM facial_scoring fs WHERE fs.video_id = v.id) AND v.file_path IS NOT NULL LIMIT 1", nativeQuery = true)
+        @Query(value = "SELECT v.* FROM video v WHERE NOT EXISTS (SELECT 1 FROM facial_scoring fs WHERE fs.video_id = v.id) AND v.file_path IS NOT NULL AND v.processing_status = 'SCORING' LIMIT 1", nativeQuery = true)
         Optional<Video> findFirstMissingFacialScore();
 
         @Query(value = "SELECT v.* FROM video v WHERE v.processing_status = 'PROCESSING' AND v.transcription IS NULL AND v.file_path IS NOT NULL LIMIT 1", nativeQuery = true)
         Optional<Video> findFirstNeedingTranscription();
 
-        @Query(value = "SELECT v.* FROM video v WHERE NOT EXISTS (SELECT 1 FROM speech_score ss WHERE ss.video_id = v.id) AND v.transcription IS NOT NULL LIMIT 1", nativeQuery = true)
+        @Query(value = "SELECT v.* FROM video v WHERE NOT EXISTS (SELECT 1 FROM speech_score ss WHERE ss.video_id = v.id) AND v.transcription IS NOT NULL AND v.processing_status = 'SCORING' LIMIT 1", nativeQuery = true)
         Optional<Video> findFirstMissingSpeechScore();
 
         @Query(value = "SELECT v.* FROM video v " +

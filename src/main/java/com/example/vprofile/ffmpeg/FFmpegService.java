@@ -10,38 +10,41 @@ import org.springframework.stereotype.Service;
 @Service
 public class FFmpegService {
 
-    /**
-     * Compresses a video file and applies a watermark using an optimized FFmpeg command.
-     *
-     * @param inputFile  The source video file.
-     * @param outputFile The destination for the compressed video file.
-     * @throws IOException          if an I/O error occurs.
-     * @throws InterruptedException if the process is interrupted.
-     */
     public void compressVideo(File inputFile, File outputFile) throws IOException, InterruptedException {
-        // Hardcoded paths for ffmpeg and the watermark image
-       String ffmpegPath = "/usr/bin/ffmpeg";
+        String ffmpegPath = "/usr/bin/ffmpeg";
+        // Use pre-resized watermark PNGs (already the exact target size) so FFmpeg loads
+        // them at native resolution — no runtime downscale, maximum sharpness.
+        // watermark_70.png  = 70px wide  for portrait 270x480 output
+        // watermark_200.png = 200px wide for landscape 854x480 output
+        String wmBase = "/home/wezume/htdocs/wezume.in/img/";
 
-        // Path to the watermark image
-        String watermarkPath = "/home/wezume/htdocs/wezume.in/img/watermark.png";
-        
-        // --- IMPORTANT ---
-        // For this to be fast, you must resize your 'circle.png' image to the
-        // desired final dimensions (e.g., 300x150 pixels) *before* running this code.
-        // This avoids forcing FFmpeg to scale the image for every video frame.
+        // Portrait: center-crop to exactly 270x480 (9:16). Any non-9:16 portrait input (e.g. 3:4
+        //   from some Android front cameras) gets cropped symmetrically — always consistent output.
+        // Landscape: center-crop to exactly 854x480 (16:9).
+        int[] dims = getVideoDimensions(inputFile);
+        boolean isPortrait = dims[1] > dims[0]; // height > width
 
-        // Scale to max 480p + cap 24fps — interview/talking-head quality (same as Zoom/Teams),
-        // ~6-9x fewer pixels than 1080p 60fps iPhone input, making libx264 encode in ~3-5s.
+        String watermarkPath = wmBase + (isPortrait ? "watermark_70.png" : "watermark_200.png");
+
+        String scaleAndCrop = isPortrait
+            ? "[0:v]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,format=yuv420p[v]"
+            : "[0:v]scale=854:480:force_original_aspect_ratio=increase,crop=854:480,format=yuv420p[v]";
+
         String[] command = {
             ffmpegPath,
             "-i", inputFile.getAbsolutePath(),
             "-i", watermarkPath,
-            "-filter_complex", "[0:v]scale=854:480:force_original_aspect_ratio=decrease[v];[1:v]scale=200:-1:flags=lanczos[wm];[v][wm]overlay=x=W-w-16:y=H*0.12[out]",
+            "-filter_complex",
+                scaleAndCrop + ";" +
+                "[1:v]format=rgba[wm];" +
+                "[v][wm]overlay=x=W-w-40:y=55[out]",
             "-map", "[out]",
             "-map", "0:a?",
             "-vcodec", "libx264",
-            "-preset", "ultrafast",
-            "-crf", "28",
+            "-preset", "medium",
+            "-crf", "26",
+            "-acodec", "aac",
+            "-b:a", "96k",
             "-r", "24",
             "-movflags", "+faststart",
             "-f", "mp4",
@@ -59,7 +62,6 @@ public class FFmpegService {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                // We print line-by-line to see progress in real-time
                 System.out.println("FFMPEG: " + line);
                 output.append(line).append("\n");
             }
@@ -71,5 +73,26 @@ public class FFmpegService {
             throw new IOException("FFmpeg process failed with exit code " + exitCode);
         }
     }
-}
 
+    private int[] getVideoDimensions(File videoFile) throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder(
+            "/usr/bin/ffprobe", "-v", "quiet",
+            "-show_entries", "stream=width,height",
+            "-of", "csv=p=0",
+            videoFile.getAbsolutePath()
+        );
+        pb.redirectErrorStream(true);
+        Process p = pb.start();
+        String line = "";
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+            String l;
+            while ((l = r.readLine()) != null) {
+                if (l.matches("\\d+,\\d+")) { line = l; break; }
+            }
+        }
+        p.waitFor();
+        if (line.isEmpty()) return new int[]{1920, 1080}; // fallback: assume landscape
+        String[] parts = line.split(",");
+        return new int[]{ Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) };
+    }
+}

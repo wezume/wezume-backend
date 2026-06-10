@@ -41,7 +41,7 @@ public class Video {
     private String transcription;
     private String thumbnailurl;
     @Column(name = "processing_status")
-    private String processingStatus; // PROCESSING | SCORING | READY
+    private String processingStatus; // PROCESSING | SCORING | READY | ERROR
 
     public Video() {
     }

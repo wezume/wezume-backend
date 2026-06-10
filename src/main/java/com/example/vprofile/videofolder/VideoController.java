@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +22,8 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import java.util.Comparator;
+
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -95,6 +96,23 @@ public class VideoController {
         }
 
         try {
+            // Enforce 30–65 second duration limit (65s includes camera flush buffer).
+            File tempForDuration = File.createTempFile("dur-check", ".mp4");
+            try {
+                file.transferTo(tempForDuration);
+                double duration = getVideoDurationSeconds(tempForDuration);
+                if (duration < 30) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body("Video too short (" + Math.round(duration) + "s). Minimum is 30 seconds.");
+                }
+                if (duration > 65) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body("Video too long (" + Math.round(duration) + "s). Maximum is 60 seconds.");
+                }
+            } finally {
+                tempForDuration.delete();
+            }
+
             Video video = videoService.saveVideo(file, userId, jobId, college, roleCode);
             return ResponseEntity.status(HttpStatus.CREATED).body(video);
         } catch (IOException e) {
@@ -371,13 +389,9 @@ public class VideoController {
 
     @PostMapping("/filter")
     public ResponseEntity<Map<String, Object>> filterVideos(@RequestBody Map<String, Object> request) {
-
-        // ✅ FIX: Read page and size from the request BODY, not URL parameters.
-        // Provide default values if they are not included in the request.
         int page = request.get("page") != null ? Integer.parseInt(request.get("page").toString()) : 0;
         int size = request.get("size") != null ? Integer.parseInt(request.get("size").toString()) : 20;
 
-        // Extract user filter fields
         String keySkills = (String) request.get("keySkills");
         String experience = (String) request.get("experience");
         String industry = (String) request.get("industry");
@@ -387,7 +401,6 @@ public class VideoController {
         String transcriptionKeywords = (String) request.get("transcriptionKeywords");
         String sortBy = (String) request.get("sortBy");
 
-        // Run filtering logic (or sorted fetch for special sortBy modes)
         List<Video> videos;
         if ("mostLiked".equals(sortBy)) {
             videos = new ArrayList<>(videoRepository.findAllOrderByLikeCountDesc());
@@ -399,14 +412,10 @@ public class VideoController {
             }
         }
 
-        // Transcription keyword filtering (if provided)
         if (transcriptionKeywords != null && !transcriptionKeywords.isBlank()) {
             List<String> keywordList = Arrays.stream(transcriptionKeywords.split(","))
-                    .map(String::trim)
-                    .map(String::toLowerCase)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.toList());
-
+                    .map(String::trim).map(String::toLowerCase)
+                    .filter(s -> !s.isEmpty()).collect(Collectors.toList());
             videos = videos.stream()
                     .filter(video -> {
                         String transcription = video.getTranscription() == null ? ""
@@ -416,18 +425,13 @@ public class VideoController {
                     .collect(Collectors.toList());
         }
 
-        // Get total count before pagination
         int totalVideos = videos.size();
-
-        // ✅ FIX: Calculate total pages
         int totalPages = (int) Math.ceil((double) totalVideos / size);
 
-        // Paginate the results
         int fromIndex = Math.min(page * size, totalVideos);
         int toIndex = Math.min((page + 1) * size, totalVideos);
         List<Video> paginatedVideos = videos.subList(fromIndex, toIndex);
 
-        // Build the list of video responses
         List<Map<String, Object>> videoResponses = new ArrayList<>();
         for (Video video : paginatedVideos) {
             Map<String, Object> videoData = new HashMap<>();
@@ -438,7 +442,6 @@ public class VideoController {
             videoData.put("jobId", video.getJobId());
 
             User videoUser = userRepository.findById(video.getUserId()).orElse(null);
-
             if (videoUser != null) {
                 videoData.put("firstName", videoUser.getFirstName());
                 videoData.put("email", videoUser.getEmail());
@@ -453,11 +456,9 @@ public class VideoController {
                 videoData.put("profilePic", "https://wezume.in/uploads/videos/defaultpic.png");
                 videoData.put("college", "Unknown");
             }
-
             videoResponses.add(videoData);
         }
 
-        // ✅ FIX: Create the final response object with pagination info
         Map<String, Object> responseBody = new HashMap<>();
         responseBody.put("videos", videoResponses);
         responseBody.put("currentPage", page);
@@ -781,6 +782,31 @@ public class VideoController {
         }
     }
 
+    private double getVideoDurationSeconds(File videoFile) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder(
+                "/usr/bin/ffprobe", "-v", "quiet",
+                "-show_entries", "format=duration",
+                "-of", "csv=p=0",
+                videoFile.getAbsolutePath()
+            );
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            String line = "";
+            try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
+                String l;
+                while ((l = r.readLine()) != null) {
+                    l = l.trim();
+                    if (!l.isEmpty()) { line = l; break; }
+                }
+            }
+            p.waitFor();
+            return line.isEmpty() ? 0 : Double.parseDouble(line);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     private File downloadVideo(String videoUri) {
         try {
             URL url = new URL(videoUri);
@@ -863,6 +889,9 @@ public class VideoController {
             result.put("hasTranscription", video.getTranscription() != null);
             result.put("videoReady", video.getFilePath() != null);
             result.put("videoUrl", video.getUrl());
+            if (video.getTranscription() != null) {
+                result.put("transcription", video.getTranscription());
+            }
             return ResponseEntity.ok(result);
         }).orElse(ResponseEntity.notFound().build());
     }

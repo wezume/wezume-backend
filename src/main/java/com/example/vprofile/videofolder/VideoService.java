@@ -73,7 +73,12 @@ public class VideoService {
         String videoUrl = "https://wezume.in/uploads/videos/" + compressedName;
 
         // Remove any existing video for this user (1-video-per-user constraint)
-        videoRepository.findAllByUserId(userId).forEach(videoRepository::delete);
+        videoRepository.findAllByUserId(userId).forEach(existing -> {
+            if (existing.getFilePath() != null) {
+                try { Files.deleteIfExists(Paths.get(existing.getFilePath())); } catch (Exception ignored) {}
+            }
+            videoRepository.delete(existing);
+        });
 
         // Save immediately so the app can navigate to status screen without waiting for FFmpeg
         Video video = new Video();
@@ -367,33 +372,26 @@ public class VideoService {
             String jobId,
             String college
     ) {
-        // Convert inputs to lowercase for case-insensitive comparison (if applicable)
         String keySkillsLower = (keySkills == null || keySkills.isBlank()) ? null : keySkills.toLowerCase();
 
-        // Convert comma-separated values to lists for experience, industry, and city
         List<String> experienceList = nullIfEmpty(toList(experience));
         List<String> industryList = nullIfEmpty(toList(industry));
         List<String> cityList = nullIfEmpty(toList(city));
 
-        // Find user IDs that match the filters
         List<Long> userIds = videoRepository.findUserIdsByFilters(
                 keySkillsLower, experienceList, industryList, cityList, jobId, college
         );
 
-        // Create a base specification to filter by user IDs
         Specification<Video> spec = VideoSpecification.filterByUserIds(userIds);
 
-        // If a jobId filter is provided, add it to the specification
         if (jobId != null && !jobId.isBlank()) {
             spec = spec.and(VideoSpecification.hasJobId(jobId));
         }
 
-        // ✅ Add college filter to the specification if it's provided
         if (college != null && !college.isBlank()) {
-            spec = spec.and(VideoSpecification.hasCollege(college)); // Filter by college
+            spec = spec.and(VideoSpecification.hasCollege(college));
         }
 
-        // Retrieve all videos based on the constructed specification
         return videoRepository.findAll(spec);
     }
 
