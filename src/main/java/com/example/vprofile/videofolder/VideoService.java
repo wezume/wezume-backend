@@ -73,9 +73,16 @@ public class VideoService {
         String videoUrl = "https://wezume.in/uploads/videos/" + compressedName;
 
         // Remove any existing video for this user (1-video-per-user constraint)
+        // Also delete the original raw file so we don't accumulate stale sources
         videoRepository.findAllByUserId(userId).forEach(existing -> {
             if (existing.getFilePath() != null) {
-                try { Files.deleteIfExists(Paths.get(existing.getFilePath())); } catch (Exception ignored) {}
+                try {
+                    Path oldCompressed = Paths.get(existing.getFilePath());
+                    Files.deleteIfExists(oldCompressed);
+                    // delete the original (same path with "original_" prefix instead of "compressed_")
+                    String oldOriginal = oldCompressed.toString().replace("/compressed_", "/original_");
+                    Files.deleteIfExists(Paths.get(oldOriginal));
+                } catch (Exception ignored) {}
             }
             videoRepository.delete(existing);
         });
@@ -96,8 +103,10 @@ public class VideoService {
         // Compress async — scheduler waits for filePath != null before transcribing
         CompletableFuture.runAsync(() -> {
             try {
-                ffmpegService.compressVideo(rawAbs.toFile(), compressedFile);
-                Files.deleteIfExists(rawAbs);
+                // Keep the original upload as "original_" so we can always re-watermark cleanly in future
+                Path originalFile = rawAbs.resolveSibling("original_" + userPrefix + file.getOriginalFilename());
+                Files.move(rawAbs, originalFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                ffmpegService.compressVideo(originalFile.toFile(), compressedFile);
                 Video v = videoRepository.findById(videoId).orElseThrow();
                 v.setFilePath(compressedFile.getAbsolutePath());
                 v.setUrl(videoUrl);

@@ -14,7 +14,7 @@ public class FFmpegService {
         String ffmpegPath = "/usr/bin/ffmpeg";
         // Use pre-resized watermark PNGs (already the exact target size) so FFmpeg loads
         // them at native resolution — no runtime downscale, maximum sharpness.
-        // watermark_70.png  = 70px wide  for portrait 270x480 output
+        // watermark_100.png = 100px wide for portrait 270x480 output (visible in thumbnails)
         // watermark_200.png = 200px wide for landscape 854x480 output
         String wmBase = "/home/wezume/htdocs/wezume.in/img/";
 
@@ -24,7 +24,7 @@ public class FFmpegService {
         int[] dims = getVideoDimensions(inputFile);
         boolean isPortrait = dims[1] > dims[0]; // height > width
 
-        String watermarkPath = wmBase + (isPortrait ? "watermark_70.png" : "watermark_200.png");
+        String watermarkPath = wmBase + (isPortrait ? "watermark_100.png" : "watermark_200.png");
 
         String scaleAndCrop = isPortrait
             ? "[0:v]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,format=yuv420p[v]"
