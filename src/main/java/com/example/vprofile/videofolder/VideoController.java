@@ -7,6 +7,8 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -286,6 +288,22 @@ public class VideoController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found for userId: " + userId);
         }
         Video video = videoOptional.get();
+
+        if (video.getFilePath() != null) {
+            try {
+                Path compressed = Paths.get(video.getFilePath());
+                Path original = compressed.resolveSibling(compressed.getFileName().toString().replace("compressed_", "original_"));
+                Path thumbnail = compressed.resolveSibling("thumbnail_" + compressed.getFileName().toString().replace(".mp4", ".jpg"));
+                Path audio = compressed.resolveSibling("audio/" + compressed.getFileName().toString().replace(".mp4", ".mp3"));
+                Files.deleteIfExists(compressed);
+                Files.deleteIfExists(original);
+                Files.deleteIfExists(thumbnail);
+                Files.deleteIfExists(audio);
+            } catch (Exception e) {
+                System.err.println("Failed to delete video files for userId " + userId + ": " + e.getMessage());
+            }
+        }
+
         videoRepository.delete(video);
         return ResponseEntity.ok("Video deleted successfully for userId: " + userId);
     }
