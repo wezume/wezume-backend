@@ -18,26 +18,28 @@ public class FFmpegService {
         // watermark_200.png = 200px wide for landscape 854x480 output
         String wmBase = "/home/wezume/htdocs/wezume.in/img/";
 
-        // Portrait: center-crop to exactly 270x480 (9:16). Any non-9:16 portrait input (e.g. 3:4
-        //   from some Android front cameras) gets cropped symmetrically — always consistent output.
-        // Landscape: center-crop to exactly 854x480 (16:9).
         int[] dims = getVideoDimensions(inputFile);
         boolean isPortrait = dims[1] > dims[0]; // height > width
 
         String watermarkPath = wmBase + (isPortrait ? "watermark_100.png" : "watermark_200.png");
 
-        String scaleAndCrop = isPortrait
-            ? "[0:v]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,format=yuv420p[v]"
-            : "[0:v]scale=854:480:force_original_aspect_ratio=increase,crop=854:480,format=yuv420p[v]";
+        // Scale to fit within target dimensions without cropping, then pad with black to fill.
+        // force_original_aspect_ratio=decrease avoids zooming in on non-9:16 inputs.
+        String scaleAndPad = isPortrait
+            ? "[0:v]scale=270:480:force_original_aspect_ratio=decrease,pad=270:480:(ow-iw)/2:(oh-ih)/2,format=yuv420p[v]"
+            : "[0:v]scale=854:480:force_original_aspect_ratio=decrease,pad=854:480:(ow-iw)/2:(oh-ih)/2,format=yuv420p[v]";
+
+        // Scale watermark to 70px wide for portrait, 150px for landscape — visible but not intrusive.
+        String wmScale = isPortrait ? "scale=70:-1," : "scale=150:-1,";
 
         String[] command = {
             ffmpegPath,
             "-i", inputFile.getAbsolutePath(),
             "-i", watermarkPath,
             "-filter_complex",
-                scaleAndCrop + ";" +
-                "[1:v]format=rgba[wm];" +
-                "[v][wm]overlay=x=W-w-40:y=55[out]",
+                scaleAndPad + ";" +
+                "[1:v]" + wmScale + "format=rgba[wm];" +
+                "[v][wm]overlay=x=W-w-15:y=15[out]",
             "-map", "[out]",
             "-map", "0:a?",
             "-vcodec", "libx264",
