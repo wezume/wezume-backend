@@ -96,9 +96,12 @@ public class VideoController {
 
         try {
             // Enforce 30–65 second duration limit (65s includes camera flush buffer).
+            // Use Files.copy (not transferTo) so the multipart stream is not consumed —
+            // transferTo moves the underlying temp file, making the second transferTo in
+            // saveVideo fail with FileNotFoundException.
             File tempForDuration = File.createTempFile("dur-check", ".mp4");
             try {
-                file.transferTo(tempForDuration);
+                Files.copy(file.getInputStream(), tempForDuration.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 double duration = getVideoDurationSeconds(tempForDuration);
                 if (duration < 30) {
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
