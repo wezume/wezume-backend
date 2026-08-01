@@ -357,7 +357,58 @@ public class AudioAnalysisService {
                     + ", Score: " + articulationScore);
         }
 
-        // 7. Save score
+        // 7. Compute pause rate via FFmpeg silencedetect on the WAV already created
+        double pauseRateScore = 1.5; // default = mid
+        try {
+            ProcessBuilder silenceBuilder = new ProcessBuilder(
+                    "/usr/bin/ffmpeg", "-y", "-i", wavPath,
+                    "-af", "silencedetect=noise=-30dB:d=0.3",
+                    "-f", "null", "-");
+            silenceBuilder.redirectErrorStream(true);
+            Process silenceProcess = silenceBuilder.start();
+
+            double totalSilence = 0.0;
+            double totalDuration = 50.0; // safe default for 30-65 s videos
+
+            try (BufferedReader sr = new BufferedReader(new InputStreamReader(silenceProcess.getInputStream()))) {
+                String sl;
+                while ((sl = sr.readLine()) != null) {
+                    if (sl.contains("silence_duration:")) {
+                        String[] p = sl.split("silence_duration:");
+                        if (p.length > 1) {
+                            try { totalSilence += Double.parseDouble(p[1].trim().split("\\s")[0]); }
+                            catch (NumberFormatException ignored) {}
+                        }
+                    }
+                    // "time=HH:MM:SS.ss" appears in the final progress line
+                    if (sl.contains("time=") && sl.indexOf("time=") + 13 < sl.length()) {
+                        try {
+                            String ts = sl.substring(sl.indexOf("time=") + 5, sl.indexOf("time=") + 13);
+                            String[] tp = ts.split(":");
+                            if (tp.length == 3)
+                                totalDuration = Double.parseDouble(tp[0]) * 3600
+                                        + Double.parseDouble(tp[1]) * 60
+                                        + Double.parseDouble(tp[2]);
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+            silenceProcess.waitFor();
+
+            if (totalDuration > 0) {
+                double ratio = totalSilence / totalDuration;
+                // Score peaks at 2.0 for ~20 % pauses (natural pacing), falls to 1.0 at extremes
+                double deviation = Math.abs(ratio - 0.20);
+                pauseRateScore = Math.max(1.0, Math.min(2.0, 2.0 - (deviation / 0.10) * 0.5));
+                pauseRateScore = Math.round(pauseRateScore * 10.0) / 10.0;
+            }
+            System.out.println("Pause rate — silence: " + totalSilence + "s / total: " + totalDuration
+                    + "s => score: " + pauseRateScore);
+        } catch (Exception e) {
+            System.err.println("Pause rate computation failed: " + e.getMessage());
+        }
+
+        // 8. Save score
         SpeechScore score = new SpeechScore();
         score.setVideoId(videoId);
         score.setPitchScore(pitchScore);
@@ -366,7 +417,7 @@ public class AudioAnalysisService {
         score.setEmotionScore(emotionScore);
         score.setFillerWordScore(fillerScore);
         score.setSpeechRateScore(rateScore);
-        score.setSentenceStructureScore(0.0); // Placeholder
+        score.setSentenceStructureScore(pauseRateScore);
         score.setArticulationScore(articulationScore);
 
         double totalScore = pitchScore + energyScore + toneScore + emotionScore +
