@@ -438,7 +438,7 @@ public class VideoController {
         } else if (!hasFilters) {
             // No filters set (e.g. default "For you" feed) — skip the filtered-user-lookup
             // path entirely and paginate chronologically, oldest first.
-            videoPage = videoRepository.findAllByOrderByCreatedAtAsc(pageRequest);
+            videoPage = videoRepository.findAllOrderByCreatedAtAscNullsLast(pageRequest);
         } else {
             videoPage = videoService.filterVideos(keySkills, experience, industry, city, jobId, college, pageRequest);
         }

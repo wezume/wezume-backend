@@ -98,6 +98,9 @@ public interface VideoRepository extends JpaRepository<Video, Long>, JpaSpecific
 
         Page<Video> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
-        Page<Video> findAllByOrderByCreatedAtAsc(Pageable pageable);
+        @Query(value = "SELECT * FROM video ORDER BY created_at IS NULL, created_at ASC",
+               countQuery = "SELECT COUNT(*) FROM video",
+               nativeQuery = true)
+        Page<Video> findAllOrderByCreatedAtAscNullsLast(Pageable pageable);
 
 }
