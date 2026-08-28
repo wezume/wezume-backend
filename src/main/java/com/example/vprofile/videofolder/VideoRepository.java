@@ -98,4 +98,6 @@ public interface VideoRepository extends JpaRepository<Video, Long>, JpaSpecific
 
         Page<Video> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
+        Page<Video> findAllByOrderByCreatedAtAsc(Pageable pageable);
+
 }

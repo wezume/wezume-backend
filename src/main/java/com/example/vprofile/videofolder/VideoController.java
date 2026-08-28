@@ -433,10 +433,12 @@ public class VideoController {
         Page<Video> videoPage;
         if ("mostLiked".equals(sortBy)) {
             videoPage = videoRepository.findAllOrderByLikeCountDesc(pageRequest);
-        } else if ("newest".equals(sortBy) || !hasFilters) {
-            // No filters set (e.g. default "For you" feed) — skip the filtered-user-lookup
-            // path entirely and paginate chronologically, same as the "newest" sort.
+        } else if ("newest".equals(sortBy)) {
             videoPage = videoRepository.findAllByOrderByCreatedAtDesc(pageRequest);
+        } else if (!hasFilters) {
+            // No filters set (e.g. default "For you" feed) — skip the filtered-user-lookup
+            // path entirely and paginate chronologically, oldest first.
+            videoPage = videoRepository.findAllByOrderByCreatedAtAsc(pageRequest);
         } else {
             videoPage = videoService.filterVideos(keySkills, experience, industry, city, jobId, college, pageRequest);
         }
