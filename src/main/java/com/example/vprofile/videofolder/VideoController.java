@@ -421,12 +421,21 @@ public class VideoController {
         String transcriptionKeywords = (String) request.get("transcriptionKeywords");
         String sortBy = (String) request.get("sortBy");
 
+        boolean hasFilters = (keySkills != null && !keySkills.isBlank())
+                || (experience != null && !experience.isBlank())
+                || (industry != null && !industry.isBlank())
+                || (city != null && !city.isBlank())
+                || (jobId != null && !jobId.isBlank())
+                || (college != null && !college.isBlank());
+
         // DB-level pagination — fetch only the requested page, not the entire table
         PageRequest pageRequest = PageRequest.of(page, size);
         Page<Video> videoPage;
         if ("mostLiked".equals(sortBy)) {
             videoPage = videoRepository.findAllOrderByLikeCountDesc(pageRequest);
-        } else if ("newest".equals(sortBy)) {
+        } else if ("newest".equals(sortBy) || !hasFilters) {
+            // No filters set (e.g. default "For you" feed) — skip the filtered-user-lookup
+            // path entirely and paginate chronologically, same as the "newest" sort.
             videoPage = videoRepository.findAllByOrderByCreatedAtDesc(pageRequest);
         } else {
             videoPage = videoService.filterVideos(keySkills, experience, industry, city, jobId, college, pageRequest);
