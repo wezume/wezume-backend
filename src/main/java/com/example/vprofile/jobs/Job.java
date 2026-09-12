@@ -1,5 +1,7 @@
 package com.example.vprofile.jobs;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -19,7 +21,7 @@ public class Job {
     private String exp;
     private String ctc;
     private String jobId;
-    private Integer sortOrder;
+    private LocalDateTime createdAt;
 
     public Long getId() {
         return id;
@@ -69,11 +71,11 @@ public class Job {
         this.jobId = jobId;
     }
 
-    public Integer getSortOrder() {
-        return sortOrder;
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
-    public void setSortOrder(Integer sortOrder) {
-        this.sortOrder = sortOrder;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }
