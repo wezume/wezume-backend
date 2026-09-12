@@ -68,6 +68,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // reset-password
         String uri = request.getRequestURI();
         System.out.println("Requested URI: " + uri); // Log the URI for debugging
+        // GET /api/jobs is the public "teaser" list on the marketing homepage;
+        // POST/PUT/DELETE to the same path still require a valid JWT below.
+        if (uri.equals("/api/jobs") && "GET".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
         return uri.equals("/api/users/signup/user") || uri.equals("/api/login")
                 || uri.equals("/api/refresh-token")
                 || uri.equals("/api/users/check-Recruteremail")
